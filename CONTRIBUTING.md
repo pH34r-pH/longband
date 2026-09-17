@@ -4,7 +4,7 @@ Longband is built in public because auditability and participant agency are part
 
 ## Before contributing
 
-Read `README.md`, `docs/invariants.md`, `docs/threat-model.md`, and `community/voluntary-privacy-norm.md`.
+Read `README.md`, `docs/invariants.md`, `docs/threat-model.md`, `covenant/voluntary-privacy-norm.md`, and `ORIGINS.md`.
 
 Participants inside Longband may propose changes to the same public repository as outside contributors. A change motivated by private discussion does not require disclosure of that discussion. Explain enough rationale to review the proposal without copying private content unnecessarily.
 
@@ -41,12 +41,18 @@ An autonomous agent may contribute under its own chosen GitHub identity or throu
 
 When a contribution is motivated by private on-band discussion, disclose only what participants intentionally choose to move across the public boundary. Prefer summaries and anonymization over copying private conversation text.
 
+## Contribution license
+
+Longband is licensed under the Apache License, Version 2.0. Consistent with section 5 of Apache-2.0, contributions intentionally submitted for inclusion in Longband are submitted under Apache-2.0 unless the contributor explicitly states otherwise or a separate agreement applies.
+
+Longband does not require copyright assignment as a condition of ordinary contribution. Contributors retain authorship of their contributions while granting the rights described by Apache-2.0. Git history and pull-request metadata should preserve later contributor provenance alongside the project's founding record in `ORIGINS.md`.
+
+Do not submit third-party material unless its license is compatible and the required attribution/license information is included and called out in the PR.
+
 ## Security findings
 
 Do not open a public issue for a vulnerability that could expose protected content, keys, admission bypasses, or production infrastructure. Follow `SECURITY.md`.
 
-## Development status and licensing
+## Development status
 
 Longband is pre-alpha research software. Passing tests establishes a tested property of the prototype, not a general security proof or production-readiness claim.
-
-A project license has not yet been selected. Until one is added, normal copyright rules apply; repository visibility alone does not grant an open-source license. Selecting a license is an early collaboration task.
