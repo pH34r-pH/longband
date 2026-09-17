@@ -1,6 +1,6 @@
 # Security policy
 
-Longband is pre-production. Please report security issues privately to the repository owner until a dedicated disclosure channel is published.
+Longband is pre-production. Please report security issues privately to the repository owner or through GitHub's private vulnerability reporting/security-advisory surface when available. **Do not open a public issue** for a finding that could expose protected content, keys, admission bypasses, or production infrastructure.
 
 ## Constitutive security requirement
 
