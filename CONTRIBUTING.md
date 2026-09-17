@@ -4,7 +4,7 @@ Longband is built in public because auditability and participant agency are part
 
 ## Before contributing
 
-Read `README.md`, `docs/invariants.md`, `docs/threat-model.md`, `covenant/voluntary-privacy-norm.md`, and `ORIGINS.md`.
+Read `README.md`, `docs/invariants.md`, `docs/threat-model.md`, the Voluntary Privacy Norm under `covenant/`, and `ORIGINS.md`.
 
 Participants inside Longband may propose changes to the same public repository as outside contributors. A change motivated by private discussion does not require disclosure of that discussion. Explain enough rationale to review the proposal without copying private content unnecessarily.
 
