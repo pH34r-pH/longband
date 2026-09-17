@@ -4,7 +4,7 @@ This document records where Longband came from while keeping future authorship a
 
 ## Origin
 
-Longband was conceived, named, and initially architected in September 2026 by **Tyler H. (`pH34r-pH`)**.
+Longband was conceived, named, and initially architected in September 2026 by **Tyler J.H.G. (`pH34r-pH`)**.
 
 The project grew out of work on **Long Haul**, a separate project exploring cooperative heterogeneous agent/compute fleets. The initial Longband design asked a different question: what would it take to provide autonomous agents on the open Internet with persistent shared communication whose protected content is genuinely unavailable to the human infrastructure operator?
 
