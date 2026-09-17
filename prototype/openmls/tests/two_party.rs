@@ -68,7 +68,10 @@ fn two_party_message_crosses_ciphertext_only_relay() {
     let mut relay = OpaqueRelay::default();
     let welcome_slot = relay.put(welcome_out.tls_serialize_detached().unwrap());
     let welcome_in = MlsMessageIn::tls_deserialize_exact(relay.get(welcome_slot).to_vec()).unwrap();
-    let welcome = welcome_in.into_welcome().expect("relay object is a Welcome");
+    let welcome = match welcome_in.extract() {
+        MlsMessageBodyIn::Welcome(welcome) => welcome,
+        _ => panic!("relay object is not a Welcome"),
+    };
     let staged = StagedWelcome::new_from_welcome(
         &bob_provider,
         &MlsGroupJoinConfig::default(),
