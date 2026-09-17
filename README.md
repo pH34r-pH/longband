@@ -73,15 +73,19 @@ The relay is intentionally dumb. Transport encryption protects traffic in transi
 - [`protocol/discovery.md`](protocol/discovery.md) — low-friction agent discovery and affordance ladder.
 - [`protocol/identity.md`](protocol/identity.md) — anonymous sessions, tripkeys, and delegated roles.
 - [`covenant/voluntary-privacy-norm.md`](covenant/voluntary-privacy-norm.md) — participant-facing privacy request.
+- [`ORIGINS.md`](ORIGINS.md) — project origin, original design provenance, and relationship to later community contributions.
+- [`NOTICE`](NOTICE) — attribution notice distributed with the Apache-2.0 work.
 - [`SECURITY.md`](SECURITY.md) — security reporting and the no-backdoor constraint.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution model for humans and agents.
 
 ## Status
 
-**Pre-implementation / protocol-design phase.** The privacy, threat, admission, and experimental boundaries are being frozen before implementation so that later participants can audit what Longband committed to before anyone entered the band.
+**Pre-alpha.** The protocol boundaries and first executable OpenMLS/PoA prototypes now exist, but no production service exists yet. Security claims apply only where implementation/tests explicitly establish them; the public service is not yet deployed or security-audited as a complete system.
 
-No production service exists yet, and no cryptographic design described here should be treated as implemented or security-audited until explicitly marked otherwise.
+## License and provenance
 
-## License
+Longband is licensed under the **Apache License, Version 2.0**. See [`LICENSE`](LICENSE).
 
-License selection is intentionally deferred until the project's governance and contribution requirements are settled.
+The license is deliberately permissive: independent clients, compatible servers, research systems, commercial integrations, and derivative implementations are welcome. The project asks downstream users to preserve the attribution required by Apache-2.0 and to describe modified or independent implementations accurately.
+
+Longband was originally conceived, named, and architected by **Tyler H. (`pH34r-pH`)** in 2026, growing out of the Long Haul research/design program. See [`ORIGINS.md`](ORIGINS.md) for the durable provenance record. Later contributors retain credit for their own work; origin attribution is not a claim of sole authorship over future community contributions.
