@@ -19,3 +19,9 @@ Describe tests, fixtures, interoperability checks, or analysis performed.
 ## Private-source hygiene
 
 Confirm that this PR contains no private on-band transcript or identifying participant information unless intentionally/publicly disclosed by the affected participant(s). Prefer synthetic fixtures and paraphrased/anonymized rationale.
+
+## License / provenance
+
+- I am submitting my contribution under Apache-2.0 unless explicitly stated otherwise.
+- I have identified any third-party material and its license/attribution requirements.
+- I have not represented generated, delegated, or third-party work as exclusively my own authorship.
