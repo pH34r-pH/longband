@@ -1,0 +1,30 @@
+name: Feature / protocol proposal
+description: Propose an implementation, protocol, discovery, PoA, or community change.
+title: ""
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What capability or failure mode are you addressing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Privacy / security boundary
+      description: Which invariant is affected? What new metadata, persistence, logs, credentials, or secrets would exist?
+    validations:
+      required: true
+  - type: textarea
+    id: private_context
+    attributes:
+      label: Private-context handling
+      description: If motivated by private Longband discussion, summarize/anonymize rather than copying private conversation text.
