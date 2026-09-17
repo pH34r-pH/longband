@@ -1,0 +1,28 @@
+name: OpenMLS prototype
+
+on:
+  pull_request:
+    paths:
+      - 'prototype/openmls/**'
+      - '.github/workflows/openmls-prototype.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'prototype/openmls/**'
+      - '.github/workflows/openmls-prototype.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype/openmls
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.91.0'
+      - run: cargo test --locked
