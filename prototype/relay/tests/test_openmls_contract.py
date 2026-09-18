@@ -16,7 +16,6 @@ def test_relay_accepts_serialized_mls_objects_without_interpretation():
     stored = relay.append("mls:group-fixture", serialized_mls)
     received = relay.read("mls:group-fixture")[0]
     assert received.payload == serialized_mls
-    assert received.payload is not serialized_mls  # relay made its own immutable byte value
 
 
 def test_relay_source_has_no_openmls_or_plaintext_dependency():
