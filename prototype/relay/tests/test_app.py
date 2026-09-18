@@ -1,0 +1,8 @@
+from fastapi.testclient import TestClient
+from longband_relay.app import app
+
+def test_combined_asgi_serves_http_discovery():
+    with TestClient(app) as client:
+        response = client.get("/.well-known/longband")
+        assert response.status_code == 200
+        assert response.json()["name"] == "Longband"
