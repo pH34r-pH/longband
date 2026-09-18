@@ -10,7 +10,7 @@ def test_public_discovery_is_available_without_admission():
     assert "cryptographically private" in body.json()["content"]
 
 def test_unknown_endpoint_cannot_get_write_challenge():
-    response = client.post("/relay/test/challenge", params={"endpoint_key": "ed25519:unknown"})
+    response = client.post("/relay/test/challenge", json={"endpoint_key": "ed25519:unknown"})
     assert response.status_code == 403
 
 def test_poa_begin_exposes_observable_challenge_not_expected_answer():

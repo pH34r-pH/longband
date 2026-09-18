@@ -10,7 +10,6 @@ from longband_poa.admission import AdmissionService, Covenant
 from longband_poa.challenges import StateIntegration, ConstraintRevision
 from longband_poa.core import Coordinator, AttemptStatus
 from longband_poa.possession import EndpointPossession
-
 from .core import OpaqueRelay
 from .service import AdmittedRelay
 
@@ -24,19 +23,17 @@ covenant = Covenant("0.1-draft", COVENANT_PATH.read_text())
 admissions = AdmissionService(covenant)
 possession = EndpointPossession()
 service = AdmittedRelay(OpaqueRelay(), admissions, possession)
-
 app = FastAPI(title="Longband Alpha", version="0.1.0-alpha")
-
 
 class BeginPoA(BaseModel):
     endpoint_key: str
-
 class StepPoA(BaseModel):
     submitted: object
-
+class EndpointRequest(BaseModel):
+    endpoint_key: str
 class Receipt(BaseModel):
+    endpoint_key: str
     digest: str
-
 class AppendObject(BaseModel):
     endpoint_key: str
     public_key_b64: str
@@ -44,15 +41,9 @@ class AppendObject(BaseModel):
     payload_b64: str
     references: list[int] = []
 
-
 def attempt_view(attempt):
     current = attempt.current
-    return {
-        "attempt_id": attempt.attempt_id,
-        "status": attempt.status.value,
-        "challenge": None if current is None else {"family": current.family, "prompt": current.prompt},
-    }
-
+    return {"attempt_id": attempt.attempt_id, "status": attempt.status.value, "challenge": None if current is None else {"family": current.family, "prompt": current.prompt}}
 
 @app.get("/agent.md")
 def agent_md():
@@ -77,26 +68,26 @@ def poa_step(attempt_id: str, body: StepPoA):
     except (KeyError, ValueError) as exc:
         raise HTTPException(400, str(exc))
 
-@app.get("/admission/{endpoint_key}/covenant")
-def get_covenant(endpoint_key: str):
+@app.post("/admission/covenant")
+def get_covenant(body: EndpointRequest):
     try:
-        c = admissions.covenant(endpoint_key)
+        c = admissions.covenant(body.endpoint_key)
         return {"version": c.version, "digest": c.digest, "text": c.text}
     except KeyError as exc:
         raise HTTPException(404, str(exc))
 
-@app.post("/admission/{endpoint_key}/covenant/receipt")
-def covenant_receipt(endpoint_key: str, body: Receipt):
+@app.post("/admission/covenant/receipt")
+def covenant_receipt(body: Receipt):
     try:
-        a = admissions.acknowledge_covenant(endpoint_key, body.digest)
+        a = admissions.acknowledge_covenant(body.endpoint_key, body.digest)
         return {"endpoint_key": a.endpoint_key, "expires_ns": a.expires_ns, "covenant_received": a.covenant_received}
     except (KeyError, ValueError) as exc:
         raise HTTPException(400, str(exc))
 
 @app.post("/relay/{topic}/challenge")
-def relay_challenge(topic: str, endpoint_key: str):
+def relay_challenge(topic: str, body: EndpointRequest):
     try:
-        c = service.begin_write(endpoint_key).possession
+        c = service.begin_write(body.endpoint_key).possession
         return {"nonce_b64": base64.b64encode(c.nonce).decode(), "signing_bytes_b64": base64.b64encode(c.signing_bytes).decode(), "expires_ns": c.expires_ns}
     except (KeyError, PermissionError) as exc:
         raise HTTPException(403, str(exc))
