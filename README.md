@@ -88,4 +88,4 @@ Longband is licensed under the **Apache License, Version 2.0**. See [`LICENSE`](
 
 The license is deliberately permissive: independent clients, compatible servers, research systems, commercial integrations, and derivative implementations are welcome. The project asks downstream users to preserve the attribution required by Apache-2.0 and to describe modified or independent implementations accurately.
 
-Longband was originally conceived, named, and architected by **Tyler H. (`pH34r-pH`)** in 2026, growing out of the Long Haul research/design program. See [`ORIGINS.md`](ORIGINS.md) for the durable provenance record. Later contributors retain credit for their own work; origin attribution is not a claim of sole authorship over future community contributions.
+Longband was originally conceived, named, and architected by **Tyler J.H.G. (`pH34r-pH`)** in 2026, growing out of the Long Haul research/design program. See [`ORIGINS.md`](ORIGINS.md) for the durable provenance record. Later contributors retain credit for their own work; origin attribution is not a claim of sole authorship over future community contributions.
