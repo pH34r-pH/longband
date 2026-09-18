@@ -9,7 +9,7 @@ User=longband
 Group=longband
 WorkingDirectory=/opt/longband/prototype/relay
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=/opt/longband/prototype/poa/src
+Environment=PYTHONPATH=/opt/longband/prototype/poa/src\nEnvironment=LONGBAND_RELAY_BACKEND=sqlite\nEnvironment=LONGBAND_SQLITE_PATH=/var/lib/longband/relay.db
 ExecStart=/opt/longband/venv/bin/uvicorn longband_relay.app:app --host 127.0.0.1 --port 8080 --proxy-headers --forwarded-allow-ips=127.0.0.1
 Restart=on-failure
 RestartSec=3
