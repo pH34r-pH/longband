@@ -7,7 +7,7 @@ name = "longband-poa-harness"
 version = "0.1.0"
 description = "Transport-independent Proof of Agency research harness"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["cryptography>=43,<47"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
