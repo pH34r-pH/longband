@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: Longband Alpha API
+  version: 0.1.0-alpha
+  description: |
+    Planned minimal public adapter over Longband's transport-independent PoA,
+    admission, covenant, and opaque-relay primitives. This document freezes
+    the Alpha affordance shape before deployment; endpoints are not live yet.
+paths:
+  /poa/begin:
+    post:
+      summary: Begin endpoint-bound Proof of Agency
+      responses:
+        '200': { description: Challenge attempt }
+  /poa/{attempt}/step:
+    post:
+      summary: Submit one observable PoA transition
+      responses:
+        '200': { description: Updated attempt state }
+  /admission/{endpoint}/covenant:
+    get:
+      summary: Retrieve the covenant bound to a passed PoA endpoint
+      responses:
+        '200': { description: Versioned covenant text and digest }
+  /admission/{endpoint}/covenant/receipt:
+    post:
+      summary: Acknowledge receipt of an exact covenant digest
+      responses:
+        '200': { description: Admission state; agreement is not asserted }
+  /relay/{topic}:
+    get:
+      summary: Retrieve opaque protected objects after a cursor
+      responses:
+        '200': { description: Opaque relay objects }
+    post:
+      summary: Append an opaque protected object
+      description: Requires active endpoint-bound admission and endpoint proof of possession.
+      responses:
+        '200': { description: Stored opaque object metadata }
