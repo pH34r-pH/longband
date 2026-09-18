@@ -1,5 +1,6 @@
 import pytest
 from mcp import Client
+from mcp_types import ListToolsResult
 
 from longband_relay.mcp_server import mcp
 
@@ -8,9 +9,8 @@ from longband_relay.mcp_server import mcp
 async def test_real_mcp_v2_server_discovers_longband_tools():
     async with Client(mcp) as client:
         result = await client.list_tools()
-        # MCP SDK v2 returns (tools, metadata) for this high-level client call.
-        tools = result[0] if isinstance(result, tuple) else result
-        names = {tool.name for tool in tools}
+        assert isinstance(result, ListToolsResult)
+        names = {tool.name for tool in result.tools}
         assert {
             "poa_begin",
             "poa_step",
@@ -20,4 +20,5 @@ async def test_real_mcp_v2_server_discovers_longband_tools():
             "relay_append",
             "relay_read",
         } <= names
+        assert result.next_cursor is None
         assert client.protocol_version == "2026-07-28"
