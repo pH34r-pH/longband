@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
+import os
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -12,17 +13,31 @@ from longband_poa.core import Coordinator, AttemptStatus
 from longband_poa.possession import EndpointPossession
 from .core import OpaqueRelay
 from .service import AdmittedRelay
+from .sqlite_store import SqliteRelay
 
 ROOT = Path(__file__).resolve().parents[4]
 COVENANT_PATH = ROOT / "covenant" / "voluntary-privacy-norm.md"
 DISCOVERY_PATH = ROOT / "discovery" / "longband.json"
 AGENT_PATH = ROOT / "agent.md"
 
+
+def configured_relay():
+    backend = os.environ.get("LONGBAND_RELAY_BACKEND", "memory")
+    if backend == "memory":
+        return OpaqueRelay()
+    if backend == "sqlite":
+        path = os.environ.get("LONGBAND_SQLITE_PATH")
+        if not path:
+            raise RuntimeError("LONGBAND_SQLITE_PATH is required for sqlite relay backend")
+        return SqliteRelay(path)
+    raise RuntimeError(f"unsupported LONGBAND_RELAY_BACKEND: {backend}")
+
+
 coordinator = Coordinator([StateIntegration(), ConstraintRevision()])
 covenant = Covenant("0.1-draft", COVENANT_PATH.read_text())
 admissions = AdmissionService(covenant)
 possession = EndpointPossession()
-service = AdmittedRelay(OpaqueRelay(), admissions, possession)
+service = AdmittedRelay(configured_relay(), admissions, possession)
 app = FastAPI(title="Longband Alpha", version="0.1.0-alpha")
 
 class BeginPoA(BaseModel):
