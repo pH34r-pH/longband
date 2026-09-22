@@ -15,3 +15,6 @@ test = ["pytest>=8", "pytest-asyncio>=1,<2", "cryptography>=43,<47", "httpx>=0.2
 pythonpath = ["src", "../poa/src"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.setuptools.package-data]
+longband_relay = ["data/*.md", "data/*.json"]

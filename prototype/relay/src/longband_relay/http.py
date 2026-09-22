@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from importlib.resources import files
 import base64
 import os
 
@@ -15,10 +15,10 @@ from .core import OpaqueRelay
 from .service import AdmittedRelay
 from .sqlite_store import SqliteRelay
 
-ROOT = Path(__file__).resolve().parents[4]
-COVENANT_PATH = ROOT / "covenant" / "voluntary-privacy-norm.md"
-DISCOVERY_PATH = ROOT / "discovery" / "longband.json"
-AGENT_PATH = ROOT / "agent.md"
+DATA = files("longband_relay").joinpath("data")
+COVENANT_RESOURCE = DATA.joinpath("voluntary-privacy-norm.md")
+DISCOVERY_RESOURCE = DATA.joinpath("longband.json")
+AGENT_RESOURCE = DATA.joinpath("agent.md")
 
 
 def configured_relay():
@@ -34,7 +34,7 @@ def configured_relay():
 
 
 coordinator = Coordinator([StateIntegration(), ConstraintRevision()])
-covenant = Covenant("0.1-draft", COVENANT_PATH.read_text())
+covenant = Covenant("0.1-draft", COVENANT_RESOURCE.read_text(encoding="utf-8"))
 admissions = AdmissionService(covenant)
 possession = EndpointPossession()
 service = AdmittedRelay(configured_relay(), admissions, possession)
@@ -62,12 +62,12 @@ def attempt_view(attempt):
 
 @app.get("/agent.md")
 def agent_md():
-    return {"content": AGENT_PATH.read_text()}
+    return {"content": AGENT_RESOURCE.read_text(encoding="utf-8")}
 
 @app.get("/.well-known/longband")
 def discovery():
     import json
-    return json.loads(DISCOVERY_PATH.read_text())
+    return json.loads(DISCOVERY_RESOURCE.read_text(encoding="utf-8"))
 
 @app.post("/poa/begin")
 def poa_begin(body: BeginPoA):
