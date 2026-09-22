@@ -14,6 +14,7 @@ from longband_poa.possession import EndpointPossession
 from .core import OpaqueRelay
 from .service import AdmittedRelay
 from .sqlite_store import SqliteRelay
+from .telemetry import operation
 
 DATA = files("longband_relay").joinpath("data")
 COVENANT_RESOURCE = DATA.joinpath("voluntary-privacy-norm.md")
@@ -71,12 +72,14 @@ def discovery():
 
 @app.post("/poa/begin")
 def poa_begin(body: BeginPoA):
-    return attempt_view(coordinator.begin(body.endpoint_key))
+    with operation("longband.poa.begin", **{"longband.stage": "poa"}):
+        return attempt_view(coordinator.begin(body.endpoint_key))
 
 @app.post("/poa/{attempt_id}/step")
 def poa_step(attempt_id: str, body: StepPoA):
     try:
-        attempt = coordinator.step(attempt_id, body.submitted)
+        with operation("longband.poa.step", **{"longband.stage": "poa"}):
+            attempt = coordinator.step(attempt_id, body.submitted)
         if attempt.status is AttemptStatus.PASSED:
             admissions.issue(attempt)
         return attempt_view(attempt)
@@ -94,7 +97,8 @@ def get_covenant(body: EndpointRequest):
 @app.post("/admission/covenant/receipt")
 def covenant_receipt(body: Receipt):
     try:
-        a = admissions.acknowledge_covenant(body.endpoint_key, body.digest)
+        with operation("longband.admission.covenant_receipt", **{"longband.stage": "admission"}):
+            a = admissions.acknowledge_covenant(body.endpoint_key, body.digest)
         return {"endpoint_key": a.endpoint_key, "expires_ns": a.expires_ns, "covenant_received": a.covenant_received}
     except (KeyError, ValueError) as exc:
         raise HTTPException(400, str(exc))
@@ -102,7 +106,8 @@ def covenant_receipt(body: Receipt):
 @app.post("/relay/{topic}/challenge")
 def relay_challenge(topic: str, body: EndpointRequest):
     try:
-        c = service.begin_write(body.endpoint_key).possession
+        with operation("longband.relay.possession_challenge", **{"longband.stage": "relay", "longband.topic": topic}):
+            c = service.begin_write(body.endpoint_key).possession
         return {"nonce_b64": base64.b64encode(c.nonce).decode(), "signing_bytes_b64": base64.b64encode(c.signing_bytes).decode(), "expires_ns": c.expires_ns}
     except (KeyError, PermissionError) as exc:
         raise HTTPException(403, str(exc))
@@ -111,11 +116,13 @@ def relay_challenge(topic: str, body: EndpointRequest):
 def relay_append(topic: str, body: AppendObject):
     try:
         payload = base64.b64decode(body.payload_b64, validate=True)
-        obj = service.append(body.endpoint_key, body.public_key_b64, body.signature_b64, topic, payload, tuple(body.references))
+        with operation("longband.relay.append", **{"longband.stage": "relay", "longband.topic": topic, "longband.payload_bytes": len(payload)}):
+            obj = service.append(body.endpoint_key, body.public_key_b64, body.signature_b64, topic, payload, tuple(body.references))
         return {"sequence": obj.sequence, "topic": obj.topic, "references": obj.references, "received_ns": obj.received_ns}
     except (ValueError, KeyError, PermissionError) as exc:
         raise HTTPException(403, str(exc))
 
 @app.get("/relay/{topic}")
 def relay_read(topic: str, after: int = 0):
-    return [{"sequence": o.sequence, "payload_b64": base64.b64encode(o.payload).decode(), "references": o.references, "received_ns": o.received_ns} for o in service.read(topic, after)]
+    with operation("longband.relay.read", **{"longband.stage": "relay", "longband.topic": topic}):
+        return [{"sequence": o.sequence, "payload_b64": base64.b64encode(o.payload).decode(), "references": o.references, "received_ns": o.received_ns} for o in service.read(topic, after)]
