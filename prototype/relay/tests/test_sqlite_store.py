@@ -42,3 +42,16 @@ def test_invalid_reference_rolls_back_object_insert(tmp_path):
         relay.append("alpha", b"ciphertext", (999,))
     assert relay.read("alpha") == ()
     relay.close()
+
+
+def test_sqlite_store_can_be_used_from_another_thread(tmp_path):
+    import concurrent.futures
+
+    store = SqliteRelay(tmp_path / "relay.db")
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            obj = pool.submit(store.append, "alpha", b"from-worker", ()).result()
+            rows = pool.submit(store.read, "alpha", 0).result()
+        assert rows == (obj,)
+    finally:
+        store.close()
