@@ -14,7 +14,7 @@ def test_installed_relay_imports_with_packaged_runtime_assets(tmp_path: Path):
     subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
     python = venv / "bin" / "python"
     pip = venv / "bin" / "pip"
-    subprocess.run([str(pip), "install", "--no-deps", str(relay)], check=True)
+    subprocess.run([str(pip), "install", str(relay), str(repo_root / "prototype" / "poa")], check=True)
     code = """
 import json
 import sys
