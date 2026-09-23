@@ -7,9 +7,6 @@ on:
       - '.github/workflows/openmls-prototype.yml'
   push:
     branches: [main]
-    paths:
-      - 'prototype/openmls/**'
-      - '.github/workflows/openmls-prototype.yml'
 
 permissions:
   contents: read
