@@ -7,6 +7,8 @@ on:
       - 'prototype/relay/**'
       - 'deploy/longband-alpha.service'
       - 'scripts/check_service_contract.py'
+      - 'scripts/build_offline_package.py'
+      - 'scripts/test_build_offline_package.py'
       - '.github/workflows/python-alpha.yml'
   push:
     branches: [main]
@@ -48,3 +50,29 @@ jobs:
       - run: python -m pytest -q
       - name: Validate deployable service boundary
         run: python ../../scripts/check_service_contract.py
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            prototype/poa/pyproject.toml
+            prototype/relay/pyproject.toml
+      - name: Check package boundary tests
+        run: python -m unittest discover -s scripts -p test_build_offline_package.py
+      - name: Build and offline-test exact source package
+        run: python scripts/build_offline_package.py --output-dir "$RUNNER_TEMP/longband-package"
+      - name: Publish immutable package and per-wheel receipt on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: longband-offline-package-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/longband-package/longband-${{ github.sha }}-offline.tar.gz
+            ${{ runner.temp }}/longband-package/package-receipt.json
+          if-no-files-found: error
+          retention-days: 30
