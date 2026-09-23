@@ -76,3 +76,153 @@ jobs:
             ${{ runner.temp }}/longband-package/package-receipt.json
           if-no-files-found: error
           retention-days: 30
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [poa, relay, package]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    concurrency:
+      group: longband-package-release-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Mirror the exact checked Actions ZIP as a public release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          repo = "pH34r-pH/longband"
+          sha = os.environ["GITHUB_SHA"]
+          run_id = int(os.environ["GITHUB_RUN_ID"])
+          attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
+          token = os.environ["GH_TOKEN"]
+          if (os.environ["GITHUB_REPOSITORY"] != repo
+                  or os.environ["GITHUB_EVENT_NAME"] != "push"
+                  or os.environ["GITHUB_REF"] != "refs/heads/main"
+                  or re.fullmatch(r"[0-9a-f]{40}", sha) is None):
+              raise SystemExit("Only the exact Longband main push may publish")
+
+          tag = f"longband-package-{sha}"
+          artifact_name = f"longband-offline-package-{sha}-{run_id}-{attempt}"
+          asset_name = f"longband-package-{sha}-{run_id}-{attempt}.zip"
+          base = f"https://api.github.com/repos/{repo}"
+
+          def request(url, *, method="GET", data=None, content_type="application/vnd.github+json"):
+              headers = {"Accept": "application/vnd.github+json",
+                         "Authorization": f"Bearer {token}",
+                         "User-Agent": "longband-exact-package-publisher"}
+              if data is not None:
+                  headers["Content-Type"] = content_type
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              with urllib.request.urlopen(req, timeout=90) as response:
+                  return json.load(response)
+
+          def api(path, *, method="GET", body=None, absent_ok=False):
+              try:
+                  return request(base + path, method=method,
+                                 data=None if body is None else json.dumps(body).encode(),
+                                 content_type="application/json")
+              except urllib.error.HTTPError as exc:
+                  if absent_ok and exc.code == 404:
+                      return None
+                  raise
+
+          artifacts = api(f"/actions/runs/{run_id}/artifacts?per_page=100")
+          if artifacts.get("total_count", 101) > 100:
+              raise SystemExit("Artifact inventory exceeded one reviewed page")
+          matches = [item for item in artifacts.get("artifacts", [])
+                     if item.get("name") == artifact_name]
+          if len(matches) != 1 or matches[0].get("expired") is not False:
+              raise SystemExit("Unique exact-run package artifact is unavailable")
+          artifact = matches[0]
+          digest = artifact.get("digest", "")
+          size = artifact.get("size_in_bytes")
+          origin = artifact.get("workflow_run", {})
+          if (not isinstance(digest, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+                  or type(size) is not int or not 0 < size <= 128 * 1024 * 1024
+                  or type(artifact.get("id")) is not int
+                  or origin.get("id") != run_id or origin.get("head_sha") != sha):
+              raise SystemExit("Package artifact metadata differs from this push")
+
+          class SafeRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, new_url):
+                  if urllib.parse.urlsplit(new_url).scheme != "https":
+                      raise ValueError("Artifact redirect must use HTTPS")
+                  redirected = super().redirect_request(req, fp, code, msg, headers, new_url)
+                  if (redirected is not None and
+                          urllib.parse.urlsplit(req.full_url).netloc != urllib.parse.urlsplit(new_url).netloc):
+                      redirected.remove_header("Authorization")
+                  return redirected
+
+          opener = urllib.request.build_opener(SafeRedirect())
+          archive_request = urllib.request.Request(
+              f"{base}/actions/artifacts/{artifact['id']}/zip",
+              headers={"Accept": "application/vnd.github+json",
+                       "Authorization": f"Bearer {token}",
+                       "User-Agent": "longband-exact-package-publisher"})
+          with opener.open(archive_request, timeout=90) as response:
+              archive = response.read(size + 1)
+          if len(archive) != size or "sha256:" + hashlib.sha256(archive).hexdigest() != digest:
+              raise SystemExit("Downloaded ZIP differs from immutable Actions metadata")
+
+          tag_ref = api(f"/git/ref/tags/{tag}", absent_ok=True)
+          if tag_ref is None:
+              api("/git/refs", method="POST", body={"ref": f"refs/tags/{tag}", "sha": sha})
+              tag_ref = api(f"/git/ref/tags/{tag}")
+          if tag_ref.get("object") != {"sha": sha, "type": "commit", "url": f"{base}/git/commits/{sha}"}:
+              # Do not accept a tag moved to a different commit or an annotated tag.
+              obj = tag_ref.get("object", {})
+              if obj.get("sha") != sha or obj.get("type") != "commit":
+                  raise SystemExit("Existing package tag does not point to exact source SHA")
+
+          release = api(f"/releases/tags/{tag}", absent_ok=True)
+          if release is None:
+              release = api("/releases", method="POST", body={
+                  "tag_name": tag, "target_commitish": sha,
+                  "name": f"Longband offline package {sha}",
+                  "body": "Byte-identical mirror of the checked main-push Actions package artifact.",
+                  "draft": False, "prerelease": True, "make_latest": "false"})
+          if (release.get("tag_name") != tag or release.get("draft") is not False
+                  or release.get("prerelease") is not True or type(release.get("id")) is not int):
+              raise SystemExit("Release metadata differs from exact package tag")
+
+          matching_assets = [item for item in release.get("assets", [])
+                             if item.get("name") == asset_name]
+          if len(matching_assets) > 1:
+              raise SystemExit("Duplicate exact-run release assets")
+          if matching_assets:
+              asset = matching_assets[0]
+          else:
+              upload = f"https://uploads.github.com/repos/{repo}/releases/{release['id']}/assets"
+              upload += "?" + urllib.parse.urlencode({"name": asset_name})
+              asset = request(upload, method="POST", data=archive,
+                              content_type="application/zip")
+          expected_url = f"https://github.com/{repo}/releases/download/{tag}/{asset_name}"
+          if (asset.get("name") != asset_name or asset.get("state") != "uploaded"
+                  or asset.get("digest") != digest or asset.get("size") != size
+                  or asset.get("browser_download_url") != expected_url):
+              raise SystemExit("Release asset is not the exact Actions artifact ZIP")
+
+          # Confirm the public mirror can actually be read without a credential.
+          with urllib.request.urlopen(expected_url, timeout=90) as response:
+              public_archive = response.read(size + 1)
+          if public_archive != archive:
+              raise SystemExit("Anonymous release download differs from exact Actions ZIP")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"## Exact Longband package mirror\n\n")
+              summary.write(f"- Source commit: `{sha}`\n")
+              summary.write(f"- Actions run/attempt: `{run_id}/{attempt}`\n")
+              summary.write(f"- ZIP SHA-256: `{digest[7:]}`\n")
+              summary.write(f"- Release asset: {expected_url}\n")
+          print(f"Published exact Actions ZIP {digest} for {sha} run {run_id}/{attempt}")
+          PY
