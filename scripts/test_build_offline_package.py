@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
 import tarfile
 import tempfile
@@ -28,6 +29,22 @@ class PackageBoundaryTests(unittest.TestCase):
                 package.identity(Path("."), {"GITHUB_REPOSITORY": "attacker/longband"})
             with self.assertRaisesRegex(package.PackageError, "originate on main"):
                 package.identity(Path("."), {"GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/heads/topic"})
+
+    def test_source_archive_extraction_rejects_links_and_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            archive = root / "source.tar.gz"
+            for malicious in (f"longband-{SHA}/../../escape", f"longband-{SHA}/shortcut"):
+                with tarfile.open(archive, "w:gz") as tar:
+                    entry = tarfile.TarInfo(malicious)
+                    if malicious.endswith("shortcut"):
+                        entry.type = tarfile.SYMTYPE
+                        entry.linkname = "/etc/passwd"
+                    else:
+                        entry.size = 1
+                    tar.addfile(entry, io.BytesIO(b"X") if entry.isfile() else None)
+                with self.assertRaisesRegex(package.PackageError, "unsafe"):
+                    package.extract_exact_source(archive, SHA, root / "extracted")
 
     def test_bundle_records_actual_bytes_and_rejects_linked_input(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
