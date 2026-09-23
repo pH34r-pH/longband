@@ -5,13 +5,11 @@ on:
     paths:
       - 'prototype/poa/**'
       - 'prototype/relay/**'
+      - 'deploy/longband-alpha.service'
+      - 'scripts/check_service_contract.py'
       - '.github/workflows/python-alpha.yml'
   push:
     branches: [main]
-    paths:
-      - 'prototype/poa/**'
-      - 'prototype/relay/**'
-      - '.github/workflows/python-alpha.yml'
 
 permissions:
   contents: read
@@ -48,3 +46,5 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install '.[test]'
       - run: python -m pytest -q
+      - name: Validate deployable service boundary
+        run: python ../../scripts/check_service_contract.py
