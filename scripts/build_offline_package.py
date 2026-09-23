@@ -20,13 +20,14 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 REPOSITORY = "pH34r-pH/longband"
 WORKFLOW = "Python Alpha prototypes"
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 MAX_BUNDLE_BYTES = 350 * 1024 * 1024
 MAX_WHEEL_BYTES = 100 * 1024 * 1024
+MAX_SOURCE_BYTES = 300 * 1024 * 1024
 
 
 class PackageError(ValueError):
@@ -112,6 +113,41 @@ def source_archive(repo: Path, sha: str, destination: Path) -> None:
     raw_tar.unlink()
 
 
+def extract_exact_source(archive: Path, sha: str, destination: Path) -> Path:
+    """Build from archived tracked files, never from the checkout's mutable files."""
+    root_name = f"longband-{sha}"
+    seen: set[str] = set()
+    total = 0
+    with tarfile.open(archive, "r:gz") as tar:
+        for item in tar:
+            parts = PurePosixPath(item.name).parts
+            normalized = "/".join(parts)
+            if (not parts or parts[0] != root_name or ".." in parts
+                    or item.name.startswith("/") or "\\" in item.name
+                    or normalized in seen or not (item.isfile() or item.isdir())):
+                raise PackageError("Source archive has an unsafe path, duplicate or link")
+            seen.add(normalized)
+            target = destination.joinpath(*parts)
+            if item.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            total += item.size
+            if total > MAX_SOURCE_BYTES:
+                raise PackageError("Expanded source exceeds its size limit")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = tar.extractfile(item)
+            if source is None:
+                raise PackageError("Source archive file is unreadable")
+            with source, target.open("xb") as output:
+                shutil.copyfileobj(source, output)
+    root = destination / root_name
+    for filename in ("prototype/poa/pyproject.toml", "prototype/relay/pyproject.toml",
+                     "deploy/longband-alpha.service"):
+        if not (root / filename).is_file():
+            raise PackageError(f"Tracked source is missing {filename}")
+    return root
+
+
 def make_bundle(source: dict, archive: Path, unit: Path, wheels: Path,
                 output_dir: Path) -> dict:
     files = sorted(wheels.glob("*.whl"))
@@ -165,19 +201,20 @@ def build(repo: Path, output_dir: Path, environment: dict[str, str]) -> dict:
     source = identity(repo, environment)
     if sys.version_info[:2] != (3, 12) or platform.machine() != "x86_64":
         raise PackageError("Alpha service package requires Python 3.12 on x86_64")
-    unit = repo / "deploy/longband-alpha.service"
     with tempfile.TemporaryDirectory(prefix="longband-public-package-") as temp:
         work = Path(temp)
         archive = work / f"longband-{source['sha']}-source.tar.gz"
         source_archive(repo, source["sha"], archive)
+        source_root = extract_exact_source(archive, source["sha"], work / "source")
+        unit = source_root / "deploy/longband-alpha.service"
         venv = work / "venv"
         wheels = work / "wheels"
         subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
         python = str(venv / "bin/python")
         subprocess.run([
             python, "-m", "pip", "wheel", "--disable-pip-version-check", "--no-cache-dir",
-            "--wheel-dir", str(wheels), str(repo / "prototype/poa"),
-            str(repo / "prototype/relay"),
+            "--wheel-dir", str(wheels), str(source_root / "prototype/poa"),
+            str(source_root / "prototype/relay"),
         ], check=True)
         subprocess.run([
             python, "-m", "pip", "install", "--disable-pip-version-check",
