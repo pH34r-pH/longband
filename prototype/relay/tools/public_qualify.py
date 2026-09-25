@@ -35,7 +35,7 @@ def solve(challenge):
     raise RuntimeError(f"unsupported PoA family: {challenge['family']}")
 
 
-def qualify(base: str, topic: str):
+def qualify(base: str, topic: str, payload: bytes | None = None):
     discovery = request(base, "GET", "/.well-known/longband")
     if discovery.get("name") != "Longband":
         raise RuntimeError("unexpected discovery document")
@@ -72,7 +72,7 @@ def qualify(base: str, topic: str):
     signing_bytes = base64.b64decode(possession["signing_bytes_b64"], validate=True)
     signature_b64 = base64.b64encode(private.sign(signing_bytes)).decode()
 
-    marker = ("longband-public-qualification:" + secrets.token_hex(16)).encode()
+    marker = payload if payload is not None else ("longband-public-qualification:" + secrets.token_hex(16)).encode()
     write = request(
         base,
         "POST",
@@ -98,7 +98,7 @@ def qualify(base: str, topic: str):
         "topic": topic,
         "sequence": write["sequence"],
         "endpoint_key_sha256_only": __import__("hashlib").sha256(endpoint_key.encode()).hexdigest(),
-        "payload": "opaque qualification marker (value intentionally omitted)",
+        "payload": ("caller-supplied opaque bytes (value intentionally omitted)" if payload is not None else "opaque qualification marker (value intentionally omitted)"),
     }
 
 
@@ -107,8 +107,10 @@ def main():
     parser.add_argument("--base-url", default="https://longband.tyharbin.com")
     parser.add_argument("--topic", default="qualification")
     parser.add_argument("--output")
+    parser.add_argument("--payload-hex", help="Caller-owned opaque bytes to round-trip; value is never emitted in evidence")
     args = parser.parse_args()
-    result = qualify(args.base_url, args.topic)
+    payload = bytes.fromhex(args.payload_hex) if args.payload_hex else None
+    result = qualify(args.base_url, args.topic, payload)
     rendered = json.dumps(result, indent=2, sort_keys=True)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as handle:
