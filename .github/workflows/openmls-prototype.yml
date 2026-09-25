@@ -23,6 +23,22 @@ jobs:
         with:
           toolchain: '1.91.0'
       - run: cargo test
+      - name: Exercise independent Alice/Bob endpoint processes
+        run: |
+          set -euo pipefail
+          cargo build --quiet
+          python3 reference_vessel_qualify.py \
+            --binary target/debug/longband-openmls-prototype \
+            --source-sha "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/openmls-process-receipt.json" \
+            --loopback
+          python3 - <<'PY'
+          import json, os
+          receipt=json.load(open(os.path.join(os.environ["RUNNER_TEMP"],"openmls-process-receipt.json")))
+          assert receipt["status"] == "passed"
+          assert receipt["endpoint_isolation"]["shared_provider_state"] is False
+          assert receipt["bob_endpoint_validation"].startswith("OpenMLS process_message")
+          PY
       - name: Exercise two-phase endpoint fixture
         run: |
           set -euo pipefail
