@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "repository": "pH34r-pH/longband",
+  "manifests": [
+    {"path":"prototype/poa/pyproject.toml","kind":"python-project"},
+    {"path":"prototype/relay/pyproject.toml","kind":"python-project"},
+    {"path":"prototype/openmls/Cargo.toml","kind":"rust-project"},
+    {"path":".github/workflows/python-alpha.yml","kind":"workflow"},
+    {"path":".github/workflows/openmls-prototype.yml","kind":"workflow"}
+  ],
+  "profiles": {
+    "python-relay": {
+      "phases":["test","package","runtime"],
+      "platforms":[{"os":"linux","arch":"amd64","abi":"glibc"}],
+      "tools":{
+        "python":{"sources":["prototype/poa/pyproject.toml","prototype/relay/pyproject.toml",".github/workflows/python-alpha.yml"]},
+        "pip":{"sources":[".github/workflows/python-alpha.yml"]}
+      },
+      "entrypoints":["python -m pytest -q (from prototype/poa and prototype/relay)","python scripts/check_service_contract.py","python scripts/build_offline_package.py --output-dir <output>"],
+      "notes":"Runtime relay and PoA dependencies are native Python manifests. Endpoint keys and private group state are not service prerequisites."
+    },
+    "openmls-endpoint": {
+      "phases":["build","test","package"],
+      "platforms":[{"os":"linux","arch":"amd64","abi":"glibc"}],
+      "tools":{
+        "rust":{"sources":["prototype/openmls/Cargo.toml",".github/workflows/openmls-prototype.yml"]},
+        "cargo":{"sources":["prototype/openmls/Cargo.toml",".github/workflows/openmls-prototype.yml"]},
+        "cc":{"sources":["prototype/openmls/Cargo.toml"],"notes":"Native system linker for the target Rust platform; qualify with the actual Cargo build."},
+        "python":{"sources":[".github/workflows/openmls-prototype.yml"]}
+      },
+      "entrypoints":["cargo test (from prototype/openmls)","cargo build --release (from prototype/openmls)"],
+      "notes":"Preserve the independent endpoint and two-phase fixture tests. This build profile is not an authorization to retain endpoint secrets in Fleet, relay storage or telemetry."
+    }
+  }
+}

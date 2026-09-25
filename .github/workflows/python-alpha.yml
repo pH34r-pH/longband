@@ -3,6 +3,8 @@ name: Python Alpha prototypes
 on:
   pull_request:
     paths:
+      - '.fleet/**'
+      - '.github/workflows/requirements.yml'
       - 'prototype/poa/**'
       - 'prototype/relay/**'
       - 'deploy/longband-alpha.service'
