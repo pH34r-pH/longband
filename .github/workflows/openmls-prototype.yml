@@ -3,6 +3,8 @@ name: OpenMLS prototype
 on:
   pull_request:
     paths:
+      - '.fleet/**'
+      - '.github/workflows/requirements.yml'
       - 'prototype/openmls/**'
       - '.github/workflows/openmls-prototype.yml'
   push:
