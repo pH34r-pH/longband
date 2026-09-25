@@ -23,3 +23,22 @@ jobs:
         with:
           toolchain: '1.91.0'
       - run: cargo test
+      - name: Emit opaque Alpha qualification object
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          cargo run --quiet -- emit-fixture "$RUNNER_TEMP/openmls-fixture.txt"
+          sed -n 's/^message_hex=//p' "$RUNNER_TEMP/openmls-fixture.txt" > "$RUNNER_TEMP/openmls-message.hex"
+          test -s "$RUNNER_TEMP/openmls-message.hex"
+          sha256sum "$RUNNER_TEMP/openmls-message.hex" | cut -d' ' -f1 > "$RUNNER_TEMP/openmls-message.hex.sha256"
+          rm -f "$RUNNER_TEMP/openmls-fixture.txt"
+      - name: Publish opaque Alpha qualification object
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: longband-openmls-opaque-object-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/openmls-message.hex
+            ${{ runner.temp }}/openmls-message.hex.sha256
+          if-no-files-found: error
+          retention-days: 7
