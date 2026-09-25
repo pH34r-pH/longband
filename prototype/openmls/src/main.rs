@@ -43,7 +43,7 @@ fn make_fixture() -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, Vec<u8>, Vec<u8>) {
     let plaintext = b"longband alpha real OpenMLS application object".to_vec();
     let outbound = alice.create_message(&alice_provider, &alice_signer, &plaintext).unwrap();
     let message = outbound.tls_serialize_detached().unwrap();
-    assert!(!message.windows(plaintext.len()).any(|w| w == plaintext);
+    assert!(!message.windows(plaintext.len()).any(|w| w == plaintext));
     (bob_provider, bob, welcome_bytes, message, plaintext)
 }
 
