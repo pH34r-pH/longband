@@ -35,7 +35,7 @@ def solve(challenge):
     raise RuntimeError(f"unsupported PoA family: {challenge['family']}")
 
 
-def qualify(base: str, topic: str, payload: bytes | None = None):
+def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_output: str | None = None):
     discovery = request(base, "GET", "/.well-known/longband")
     if discovery.get("name") != "Longband":
         raise RuntimeError("unexpected discovery document")
@@ -86,8 +86,12 @@ def qualify(base: str, topic: str, payload: bytes | None = None):
         },
     )
     objects = request(base, "GET", f"/relay/{topic}?after={max(0, int(write['sequence']) - 1)}")
-    if not any(base64.b64decode(obj["payload_b64"], validate=True) == marker for obj in objects):
+    returned = next((base64.b64decode(obj["payload_b64"], validate=True) for obj in objects if base64.b64decode(obj["payload_b64"], validate=True) == marker), None)
+    if returned is None:
         raise RuntimeError("written opaque object was not returned by relay readback")
+    if roundtrip_output:
+        with open(roundtrip_output, "wb") as handle:
+            handle.write(returned)
 
     return {
         "status": "passed",
@@ -108,9 +112,10 @@ def main():
     parser.add_argument("--topic", default="qualification")
     parser.add_argument("--output")
     parser.add_argument("--payload-hex", help="Caller-owned opaque bytes to round-trip; value is never emitted in evidence")
+    parser.add_argument("--roundtrip-output", help="Write the exact relay-returned bytes locally; never included in evidence")
     args = parser.parse_args()
     payload = bytes.fromhex(args.payload_hex) if args.payload_hex else None
-    result = qualify(args.base_url, args.topic, payload)
+    result = qualify(args.base_url, args.topic, payload, args.roundtrip_output)
     rendered = json.dumps(result, indent=2, sort_keys=True)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as handle:

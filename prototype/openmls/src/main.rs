@@ -1,8 +1,9 @@
 //! Longband OpenMLS lifecycle research fixture.
 //!
-//! With `emit-fixture`, this binary emits endpoint-owned fixture material for
-//! the cross-language Alpha integration test. The relay receives only the
-//! serialized MLS objects; Bob's provider/group state remains in this process.
+//! The two-phase commands deliberately keep Bob's endpoint state local:
+//! phase one emits an opaque MLS application object plus disposable endpoint
+//! state; phase two reloads that state and consumes the exact relay-returned
+//! object with OpenMLS.
 
 use openmls::prelude::{tls_codec::*, *};
 use openmls_basic_credential::SignatureKeyPair;
@@ -24,7 +25,7 @@ fn unhex(value: &str) -> Vec<u8> {
     (0..value.len()).step_by(2).map(|i| u8::from_str_radix(&value[i..i+2], 16).unwrap()).collect()
 }
 
-fn emit_fixture(path: &str) {
+fn make_fixture() -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, Vec<u8>, Vec<u8>) {
     let suite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
     let alice_provider = OpenMlsRustCrypto::default();
     let bob_provider = OpenMlsRustCrypto::default();
@@ -38,18 +39,64 @@ fn emit_fixture(path: &str) {
     let welcome_in = MlsMessageIn::tls_deserialize_exact(welcome_bytes.clone()).unwrap();
     let welcome = match welcome_in.extract() { MlsMessageBodyIn::Welcome(w) => w, _ => panic!("expected Welcome") };
     let staged = StagedWelcome::new_from_welcome(&bob_provider, &MlsGroupJoinConfig::default(), welcome, Some(alice.export_ratchet_tree().into())).unwrap();
-    let mut bob = staged.into_group(&bob_provider).unwrap();
-    let plaintext = b"longband alpha real OpenMLS application object";
-    let outbound = alice.create_message(&alice_provider, &alice_signer, plaintext).unwrap();
+    let bob = staged.into_group(&bob_provider).unwrap();
+    let plaintext = b"longband alpha real OpenMLS application object".to_vec();
+    let outbound = alice.create_message(&alice_provider, &alice_signer, &plaintext).unwrap();
     let message = outbound.tls_serialize_detached().unwrap();
     assert!(!message.windows(plaintext.len()).any(|w| w == plaintext));
-    let inbound = MlsMessageIn::tls_deserialize_exact(message.clone()).unwrap();
-    let processed = bob.process_message(&bob_provider, inbound.try_into_protocol_message().unwrap()).unwrap();
+    (bob_provider, bob, welcome_bytes, message, plaintext)
+}
+
+fn emit_fixture(path: &str) {
+    let (_provider, _bob, welcome, message, plaintext) = make_fixture();
+    fs::write(path, format!("welcome_hex={}\nmessage_hex={}\nplaintext_hex={}\n", hex(&welcome), hex(&message), hex(&plaintext))).unwrap();
+}
+
+fn emit_two_phase(state_path: &str, message_path: &str) {
+    let (provider, bob, _welcome, message, plaintext) = make_fixture();
+    let mut lines = vec![
+        format!("group_id_hex={}", hex(bob.group_id().as_slice())),
+        format!("plaintext_hex={}", hex(&plaintext)),
+    ];
+    let values = provider.storage().values.read().unwrap();
+    let mut entries: Vec<_> = values.iter().collect();
+    entries.sort_by(|(ka,_),(kb,_)| ka.cmp(kb));
+    for (key, value) in entries {
+        lines.push(format!("storage_hex={}={}", hex(key), hex(value)));
+    }
+    drop(values);
+    fs::write(state_path, lines.join("\n") + "\n").unwrap();
+    fs::write(message_path, hex(&message) + "\n").unwrap();
+}
+
+fn consume_two_phase(state_path: &str, message_path: &str) {
+    let state = fs::read_to_string(state_path).unwrap();
+    let mut group_id = None;
+    let mut plaintext = None;
+    let provider = OpenMlsRustCrypto::default();
+    {
+        let mut values = provider.storage().values.write().unwrap();
+        for line in state.lines() {
+            if let Some(v)=line.strip_prefix("group_id_hex=") { group_id=Some(unhex(v)); }
+            else if let Some(v)=line.strip_prefix("plaintext_hex=") { plaintext=Some(unhex(v)); }
+            else if let Some(v)=line.strip_prefix("storage_hex=") {
+                let (k,val)=v.split_once('=').expect("storage snapshot entry");
+                values.insert(unhex(k), unhex(val));
+            }
+        }
+    }
+    let group_id = GroupId::from_slice(&group_id.expect("group id"));
+    let plaintext = plaintext.expect("plaintext");
+    let mut bob = MlsGroup::load(provider.storage(), &group_id).unwrap().expect("Bob group state");
+    let message = unhex(fs::read_to_string(message_path).unwrap().trim());
+    assert!(!message.windows(plaintext.len()).any(|w| w == plaintext));
+    let inbound = MlsMessageIn::tls_deserialize_exact(message).expect("returned bytes must be serialized MLS");
+    let processed = bob.process_message(&provider, inbound.try_into_protocol_message().unwrap()).unwrap();
     match processed.into_content() {
         ProcessedMessageContent::ApplicationMessage(m) => assert_eq!(m.into_bytes(), plaintext),
         _ => panic!("expected application message"),
     }
-    fs::write(path, format!("welcome_hex={}\nmessage_hex={}\nplaintext_hex={}\n", hex(&welcome_bytes), hex(&message), hex(plaintext))).unwrap();
+    println!("two-phase OpenMLS endpoint validation passed");
 }
 
 fn verify_message(path: &str) {
@@ -70,6 +117,14 @@ fn main() {
     match args.get(1).map(String::as_str) {
         Some("emit-fixture") => emit_fixture(args.get(2).expect("fixture output path required")),
         Some("verify-relay-object") => verify_message(args.get(2).expect("fixture path required")),
+        Some("emit-two-phase") => emit_two_phase(
+            args.get(2).expect("endpoint state path required"),
+            args.get(3).expect("message output path required"),
+        ),
+        Some("consume-two-phase") => consume_two_phase(
+            args.get(2).expect("endpoint state path required"),
+            args.get(3).expect("returned message path required"),
+        ),
         _ => println!("longband-openmls-prototype: lifecycle fixture; not for production"),
     }
 }
