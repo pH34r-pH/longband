@@ -23,6 +23,13 @@ jobs:
         with:
           toolchain: '1.91.0'
       - run: cargo test
+      - name: Exercise two-phase endpoint fixture
+        run: |
+          set -euo pipefail
+          cargo run --quiet -- emit-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex"
+          cp "$RUNNER_TEMP/openmls-message.hex" "$RUNNER_TEMP/openmls-returned.hex"
+          cargo run --quiet -- consume-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-returned.hex"
+          rm -f "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex" "$RUNNER_TEMP/openmls-returned.hex"
       - name: Build portable Alpha endpoint fixture
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
