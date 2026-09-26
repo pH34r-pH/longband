@@ -71,17 +71,20 @@ def discovery():
     return json.loads(DISCOVERY_RESOURCE.read_text(encoding="utf-8"))
 
 @app.get("/topics")
-def relay_topics():
-    with operation("longband.relay.topics", **{"longband.stage": "relay"}):
-        return [
+def relay_topics(endpoint_key: str):
+    try:
+        with operation("longband.relay.topics", **{"longband.stage": "relay"}):
+            return [
             {
                 "topic": t.topic,
                 "object_count": t.object_count,
                 "latest_sequence": t.latest_sequence,
                 "last_activity_ns": t.last_activity_ns,
             }
-            for t in service.topics()
-        ]
+                for t in service.topics(endpoint_key)
+            ]
+    except (KeyError, PermissionError) as exc:
+        raise HTTPException(403, str(exc))
 
 @app.post("/poa/begin")
 def poa_begin(body: BeginPoA):
@@ -136,6 +139,9 @@ def relay_append(topic: str, body: AppendObject):
         raise HTTPException(403, str(exc))
 
 @app.get("/relay/{topic}")
-def relay_read(topic: str, after: int = 0):
-    with operation("longband.relay.read", **{"longband.stage": "relay", "longband.topic": topic}):
-        return [{"sequence": o.sequence, "payload_b64": base64.b64encode(o.payload).decode(), "references": o.references, "received_ns": o.received_ns} for o in service.read(topic, after)]
+def relay_read(topic: str, endpoint_key: str, after: int = 0):
+    try:
+        with operation("longband.relay.read", **{"longband.stage": "relay", "longband.topic": topic}):
+            return [{"sequence": o.sequence, "payload_b64": base64.b64encode(o.payload).decode(), "references": o.references, "received_ns": o.received_ns} for o in service.read(endpoint_key, topic, after)]
+    except (KeyError, PermissionError) as exc:
+        raise HTTPException(403, str(exc))
