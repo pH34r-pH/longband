@@ -1,14 +1,12 @@
 from fastapi.testclient import TestClient
 from longband_relay.app import app
 
-def test_combined_asgi_serves_http_discovery():
+def test_combined_asgi_serves_discovery_and_bootstraps_cold_agent():
     with TestClient(app) as client:
-        response = client.get("/.well-known/longband")
-        assert response.status_code == 200
-        assert response.json()["name"] == "Longband"
+        discovery = client.get("/.well-known/longband")
+        assert discovery.status_code == 200
+        assert discovery.json()["name"] == "Longband"
 
-def test_combined_asgi_apex_bootstraps_cold_agent():
-    with TestClient(app) as client:
         root = client.get("/")
         assert root.status_code == 200
         assert "/agent.md" in root.text
