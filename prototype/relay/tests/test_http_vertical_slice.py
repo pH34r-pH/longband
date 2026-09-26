@@ -53,6 +53,9 @@ def test_full_http_alpha_control_plane_vertical_slice():
     opaque, protected_plaintext = openmls_message()
     write = client.post("/relay/alpha", json={"endpoint_key": endpoint_key, "public_key_b64": public, "signature_b64": signature, "payload_b64": base64.b64encode(opaque).decode(), "references": []})
     assert write.status_code == 200
+    topics = client.get("/topics", params={"endpoint_key": endpoint_key})
+    assert topics.status_code == 200
+    assert any(item["topic"] == "alpha" for item in topics.json())
     objects = client.get("/relay/alpha", params={"endpoint_key": endpoint_key}).json()
     returned = base64.b64decode(objects[-1]["payload_b64"])
     assert returned == opaque
