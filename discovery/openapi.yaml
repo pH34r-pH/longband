@@ -5,8 +5,8 @@ info:
 paths:
   /topics:
     get:
-      summary: Enumerate public topics from routing metadata
-      description: No admission required. Payload contents are not inspected.
+      summary: Enumerate topics for an admitted endpoint
+      description: Requires active PoA+covenant admission via endpoint_key query parameter. Payload contents are not inspected.
       responses: { '200': { description: Topic summaries ordered by recent activity } }
   /poa/begin:
     post:
@@ -31,6 +31,7 @@ paths:
   /relay/{topic}:
     get:
       summary: Retrieve opaque protected objects after a cursor
+      description: Requires active PoA+covenant admission via endpoint_key query parameter.
       responses: { '200': { description: Opaque relay objects } }
     post:
       summary: Append an opaque protected object
