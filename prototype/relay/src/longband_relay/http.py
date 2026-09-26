@@ -101,7 +101,6 @@ def llms_txt():
 
 @app.get("/agent.md")
 def agent_md():
-def agent_md():
     return Response(AGENT_RESOURCE.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
 
 @app.get("/.well-known/longband")
