@@ -6,7 +6,7 @@ import base64
 from longband_poa.admission import AdmissionService
 from longband_poa.possession import EndpointPossession, PossessionChallenge
 
-from .core import OpaqueRelay, RelayObject
+from .core import OpaqueRelay, RelayObject, TopicSummary
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,10 @@ class AdmittedRelay:
         if not self._possession.verify(endpoint_key, public_key_b64, signature_b64):
             raise PermissionError("endpoint proof-of-possession failed")
         return self._relay.append(topic, payload, references)
+
+    def topics(self) -> tuple[TopicSummary, ...]:
+        # Topic names and aggregate activity are intentionally public routing metadata.
+        return self._relay.topics()
 
     def read(self, topic: str, after: int = 0) -> tuple[RelayObject, ...]:
         # Alpha keeps ciphertext reads public to avoid creating a bearer-token
