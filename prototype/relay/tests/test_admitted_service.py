@@ -35,7 +35,8 @@ def test_admitted_endpoint_with_fresh_possession_can_append_ciphertext():
     challenge = service.begin_write(endpoint)
     signature = base64.b64encode(private.sign(challenge.possession.signing_bytes)).decode()
     stored = service.append(endpoint, public, signature, "mls:test", b"opaque-mls-ciphertext")
-    assert service.read("mls:test") == (stored,)
+    assert service.read(endpoint, "mls:test") == (stored,)
+    assert service.topics(endpoint)[0].topic == "mls:test"
 
 
 def test_copied_endpoint_identifier_cannot_write_without_private_key():
@@ -58,3 +59,10 @@ def test_covenant_receipt_is_required_before_write_challenge():
     service = AdmittedRelay(OpaqueRelay(), admissions, EndpointPossession())
     with pytest.raises(PermissionError):
         service.begin_write(endpoint)
+
+def test_unadmitted_endpoint_cannot_discover_or_read():
+    _, _, _, service = admitted_service()
+    with pytest.raises((KeyError, PermissionError)):
+        service.topics("ed25519:unknown")
+    with pytest.raises((KeyError, PermissionError)):
+        service.read("ed25519:unknown", "mls:test")

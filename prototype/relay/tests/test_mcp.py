@@ -33,6 +33,14 @@ def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
 
     payload = base64.b64encode(b"opaque-mcp-object").decode()
     tools.relay_append(endpoint, public, signature, "mcp:test", payload)
-    assert tools.relay_read("mcp:test")[0]["payload_b64"] == payload
-    topics = tools.relay_topics()
+    assert tools.relay_read(endpoint, "mcp:test")[0]["payload_b64"] == payload
+    topics = tools.relay_topics(endpoint)
     assert any(t["topic"] == "mcp:test" and t["object_count"] >= 1 for t in topics)
+
+def test_mcp_topics_and_reads_require_admission():
+    tools = LongbandMcpTools()
+    import pytest
+    with pytest.raises((KeyError, PermissionError)):
+        tools.relay_topics("ed25519:unknown")
+    with pytest.raises((KeyError, PermissionError)):
+        tools.relay_read("ed25519:unknown", "mcp:test")
