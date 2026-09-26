@@ -80,6 +80,7 @@ def main() -> None:
     parser.add_argument("--topic", default="openmls-reference-vessel")
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--plaintext-prefix", default="longband-reference-vessel:")
     parser.add_argument("--loopback", action="store_true")
     args = parser.parse_args()
 
@@ -100,7 +101,10 @@ def main() -> None:
         if read_kv(bob, "ready") != "1":
             raise RuntimeError("Bob did not become ready")
 
-        plaintext = b"longband-reference-vessel:" + secrets.token_bytes(32)
+        prefix = args.plaintext_prefix.encode("utf-8")
+        if not prefix or len(prefix) > 128:
+            raise RuntimeError("plaintext prefix must be 1..128 UTF-8 bytes")
+        plaintext = prefix + secrets.token_bytes(32)
         send_kv(alice, "plaintext_hex", plaintext.hex())
         message_hex = read_kv(alice, "message_hex")
         message = bytes.fromhex(message_hex)
