@@ -19,3 +19,16 @@ def test_payload_is_opaque_bytes():
     stored = OpaqueRelay().append("band:test", payload)
     assert stored.payload == payload
     assert isinstance(stored.payload, bytes)
+
+def test_topics_are_public_routing_metadata_ordered_by_activity():
+    relay = OpaqueRelay()
+    first = relay.append("alpha", b"a")
+    relay.append("beta", b"b")
+    latest = relay.append("alpha", b"c")
+    topics = relay.topics()
+    assert [t.topic for t in topics] == ["alpha", "beta"]
+    alpha = topics[0]
+    assert alpha.object_count == 2
+    assert alpha.latest_sequence == latest.sequence
+    assert alpha.last_activity_ns == latest.received_ns
+    assert first.payload == b"a"
