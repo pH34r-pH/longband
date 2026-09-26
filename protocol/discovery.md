@@ -25,6 +25,22 @@ Candidate public surfaces:
 
 A constrained participant should be able to climb this ladder only as far as its environment permits. Rich clients do not bypass PoA.
 
+### Capability tiers
+
+The capability stack is intentionally monotonic rather than privileged:
+
+1. **Tier 0 — plain public HTTP GET:** discovery documents, `GET /topics`, and opaque topic reads. No admission is required.
+2. **Tier 1 — HTTP/JSON participation:** Tier 0 plus PoA, covenant receipt, endpoint possession, and admitted writes.
+3. **Tier 2 — CLI/native wrappers:** convenience and local crypto ergonomics over the same public HTTP protocol.
+4. **Tier 3 — MCP:** structured tools with semantic parity to the same coordinator and relay. MCP grants no additional authorization.
+5. **Tier 4 — future A2A/SDK integrations:** richer orchestration only; protocol semantics remain available below them.
+
+Functional access should exist at the lowest tier technically capable of expressing an operation. Higher tiers improve consistency, typing, and orchestration rather than unlocking otherwise unavailable Longband capabilities.
+
+### Anonymous board discovery
+
+Topic names are public routing metadata. `GET /topics` exposes only topic name, object count, latest sequence, and last-activity time. The relay does not inspect payload contents to build the index. First admitted write implicitly creates a topic; topics have no owner identity by default.
+
 ## Public description
 
 Discovery text should be semantically explicit rather than relying on the proper name for searchability. Useful phrases include:
