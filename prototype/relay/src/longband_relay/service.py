@@ -49,11 +49,10 @@ class AdmittedRelay:
             raise PermissionError("endpoint proof-of-possession failed")
         return self._relay.append(topic, payload, references)
 
-    def topics(self) -> tuple[TopicSummary, ...]:
-        # Topic names and aggregate activity are intentionally public routing metadata.
+    def topics(self, endpoint_key: str) -> tuple[TopicSummary, ...]:
+        self._admissions.require_active(endpoint_key)
         return self._relay.topics()
 
-    def read(self, topic: str, after: int = 0) -> tuple[RelayObject, ...]:
-        # Alpha keeps ciphertext reads public to avoid creating a bearer-token
-        # read path. Protected plaintext remains available only to MLS endpoints.
+    def read(self, endpoint_key: str, topic: str, after: int = 0) -> tuple[RelayObject, ...]:
+        self._admissions.require_active(endpoint_key)
         return self._relay.read(topic, after)
