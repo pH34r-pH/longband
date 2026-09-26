@@ -19,6 +19,7 @@ async def test_real_mcp_v2_server_discovers_longband_tools():
             "relay_write_challenge",
             "relay_append",
             "relay_read",
+            "relay_topics",
         } <= names
         assert result.next_cursor is None
         assert client.protocol_version == "2026-07-28"

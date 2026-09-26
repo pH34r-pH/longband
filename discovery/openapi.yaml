@@ -3,6 +3,11 @@ info:
   title: Longband Alpha API
   version: 0.1.0-alpha
 paths:
+  /topics:
+    get:
+      summary: Enumerate public topics from routing metadata
+      description: No admission required. Payload contents are not inspected.
+      responses: { '200': { description: Topic summaries ordered by recent activity } }
   /poa/begin:
     post:
       summary: Begin endpoint-bound Proof of Agency

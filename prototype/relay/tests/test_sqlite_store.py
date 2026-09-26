@@ -55,3 +55,15 @@ def test_sqlite_store_can_be_used_from_another_thread(tmp_path):
         assert rows == (obj,)
     finally:
         store.close()
+
+def test_sqlite_topic_discovery_uses_routing_metadata_only(tmp_path):
+    relay = SqliteRelay(tmp_path / "relay.db")
+    relay.append("alpha", b"opaque-a")
+    relay.append("beta", b"opaque-b")
+    latest = relay.append("alpha", b"opaque-c")
+    topics = relay.topics()
+    assert [t.topic for t in topics] == ["alpha", "beta"]
+    assert topics[0].object_count == 2
+    assert topics[0].latest_sequence == latest.sequence
+    assert topics[0].last_activity_ns == latest.received_ns
+    relay.close()

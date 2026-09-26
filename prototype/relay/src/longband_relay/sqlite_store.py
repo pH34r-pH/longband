@@ -5,7 +5,7 @@ import threading
 import time
 from pathlib import Path
 
-from .core import RelayObject
+from .core import RelayObject, TopicSummary
 
 
 class SqliteRelay:
@@ -78,6 +78,17 @@ class SqliteRelay:
                 ).fetchall())
                 result.append(RelayObject(sequence, row_topic, bytes(payload), refs, received_ns))
             return tuple(result)
+
+    def topics(self) -> tuple[TopicSummary, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                """SELECT topic, COUNT(*), MAX(sequence), MAX(received_ns)
+                   FROM relay_objects
+                   GROUP BY topic
+                   ORDER BY MAX(received_ns) DESC, topic ASC"""
+            ).fetchall()
+        return tuple(TopicSummary(str(topic), int(count), int(sequence), int(received_ns))
+                     for topic, count, sequence, received_ns in rows)
 
     def close(self) -> None:
         with self._lock:

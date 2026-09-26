@@ -52,6 +52,17 @@ class LongbandMcpTools:
         )
         return {"sequence": obj.sequence, "topic": obj.topic, "references": obj.references, "received_ns": obj.received_ns}
 
+    def relay_topics(self) -> list[dict]:
+        return [
+            {
+                "topic": t.topic,
+                "object_count": t.object_count,
+                "latest_sequence": t.latest_sequence,
+                "last_activity_ns": t.last_activity_ns,
+            }
+            for t in service.topics()
+        ]
+
     def relay_read(self, topic: str, after: int = 0) -> list[dict]:
         return [
             {"sequence": o.sequence, "payload_b64": base64.b64encode(o.payload).decode(), "references": o.references, "received_ns": o.received_ns}

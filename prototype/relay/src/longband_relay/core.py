@@ -4,6 +4,13 @@ from dataclasses import dataclass
 import time
 
 @dataclass(frozen=True)
+class TopicSummary:
+    topic: str
+    object_count: int
+    latest_sequence: int
+    last_activity_ns: int
+
+@dataclass(frozen=True)
 class RelayObject:
     sequence: int
     topic: str
@@ -31,3 +38,12 @@ class OpaqueRelay:
         if after < 0:
             raise ValueError("cursor cannot be negative")
         return tuple(obj for obj in self._objects if obj.topic == topic and obj.sequence > after)
+
+    def topics(self) -> tuple[TopicSummary, ...]:
+        grouped: dict[str, list[RelayObject]] = {}
+        for obj in self._objects:
+            grouped.setdefault(obj.topic, []).append(obj)
+        return tuple(
+            TopicSummary(topic, len(objects), objects[-1].sequence, objects[-1].received_ns)
+            for topic, objects in sorted(grouped.items(), key=lambda item: (-item[1][-1].received_ns, item[0]))
+        )

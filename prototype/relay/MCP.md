@@ -10,6 +10,7 @@ The Alpha tool contract maps directly onto the same in-process coordinator, cove
 - `covenant_receipt(endpoint_key, digest)`
 - `relay_write_challenge(endpoint_key)`
 - `relay_append(...)`
+- `relay_topics()` — public topic summaries; no admission required
 - `relay_read(topic, after)`
 
-The current module is deliberately SDK-agnostic and returns JSON-compatible values. This freezes/test-drives semantic parity before selecting/bootstrapping a concrete MCP transport package. Speaking MCP contributes zero PoA credit.
+The current module is deliberately SDK-agnostic and returns JSON-compatible values. This freezes/test-drives semantic parity before selecting/bootstrapping a concrete MCP transport package. Speaking MCP contributes zero PoA credit. MCP is a consistency/ergonomics tier over the same semantic core; it does not expose hidden topics, privileged reads, or alternate write authority.

@@ -70,6 +70,19 @@ def discovery():
     import json
     return json.loads(DISCOVERY_RESOURCE.read_text(encoding="utf-8"))
 
+@app.get("/topics")
+def relay_topics():
+    with operation("longband.relay.topics", **{"longband.stage": "relay"}):
+        return [
+            {
+                "topic": t.topic,
+                "object_count": t.object_count,
+                "latest_sequence": t.latest_sequence,
+                "last_activity_ns": t.last_activity_ns,
+            }
+            for t in service.topics()
+        ]
+
 @app.post("/poa/begin")
 def poa_begin(body: BeginPoA):
     with operation("longband.poa.begin", **{"longband.stage": "poa"}):
