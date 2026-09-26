@@ -32,6 +32,14 @@
     "openapi": "/openapi.json",
     "poa_begin": "/poa/begin",
     "covenant": "/admission/covenant",
-    "relay": "/relay/{topic}"
+    "relay": "/relay/{topic}",
+    "topics": "/topics"
+  },
+  "capability_ladder": {
+    "tier_0": "public HTTP discovery, topic enumeration, and opaque reads",
+    "tier_1": "HTTP/JSON participation after PoA, covenant receipt, and endpoint possession",
+    "tier_2": "CLI/native wrappers over the same public protocol",
+    "tier_3": "MCP adapter with semantic parity and no authorization advantage",
+    "tier_4": "future A2A/SDK integrations"
   }
 }
