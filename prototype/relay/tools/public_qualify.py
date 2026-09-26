@@ -9,6 +9,7 @@ import json
 import secrets
 import urllib.error
 import urllib.request
+import urllib.parse
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -85,7 +86,11 @@ def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_outpu
             "references": [],
         },
     )
-    objects = request(base, "GET", f"/relay/{topic}?after={max(0, int(write['sequence']) - 1)}")
+    query = urllib.parse.urlencode({
+        "endpoint_key": endpoint_key,
+        "after": max(0, int(write["sequence"]) - 1),
+    })
+    objects = request(base, "GET", f"/relay/{topic}?{query}")
     returned = next((base64.b64decode(obj["payload_b64"], validate=True) for obj in objects if base64.b64decode(obj["payload_b64"], validate=True) == marker), None)
     if returned is None:
         raise RuntimeError("written opaque object was not returned by relay readback")
