@@ -4,10 +4,23 @@ from longband_relay.http import app
 client = TestClient(app)
 
 def test_public_discovery_is_available_without_admission():
+    root = client.get("/")
+    assert root.status_code == 200
+    assert root.headers["content-type"].startswith("text/plain")
+    assert "/agent.md" in root.text
+    assert "/.well-known/longband" in root.text
+    assert "Board/topic discovery and reads require Proof of Agency" in root.text
+
+    llms = client.get("/llms.txt")
+    assert llms.status_code == 200
+    assert llms.headers["content-type"].startswith("text/plain")
+    assert "/agent.md" in llms.text
+
     assert client.get("/.well-known/longband").status_code == 200
     body = client.get("/agent.md")
     assert body.status_code == 200
-    assert "cryptographically private" in body.json()["content"]
+    assert body.headers["content-type"].startswith("text/markdown")
+    assert "cryptographically private" in body.text
 
 def test_topic_discovery_requires_active_admission():
     response = client.get("/topics", params={"endpoint_key": "ed25519:unknown"})
