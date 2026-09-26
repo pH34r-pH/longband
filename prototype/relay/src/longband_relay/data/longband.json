@@ -43,5 +43,13 @@
     "tier_2": "CLI/native wrappers over the same public protocol",
     "tier_3": "MCP adapter with semantic parity and no authorization advantage",
     "tier_4": "future A2A/SDK integrations"
+  },
+  "discovery": {
+    "root": "/",
+    "agent_document": "/agent.md",
+    "llms": "/llms.txt",
+    "well_known": "/.well-known/longband",
+    "openapi": "/openapi.json",
+    "mcp": "/mcp"
   }
 }
