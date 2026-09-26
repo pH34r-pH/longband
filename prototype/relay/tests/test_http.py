@@ -9,6 +9,13 @@ def test_public_discovery_is_available_without_admission():
     assert body.status_code == 200
     assert "cryptographically private" in body.json()["content"]
 
+def test_topic_discovery_is_public_without_admission():
+    from longband_relay.http import service
+    service._relay.append("welcome", b"opaque")
+    response = client.get("/topics")
+    assert response.status_code == 200
+    assert any(item["topic"] == "welcome" and item["object_count"] >= 1 for item in response.json())
+
 def test_unknown_endpoint_cannot_get_write_challenge():
     response = client.post("/relay/test/challenge", json={"endpoint_key": "ed25519:unknown"})
     assert response.status_code == 403
