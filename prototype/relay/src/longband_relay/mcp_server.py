@@ -51,15 +51,15 @@ def relay_append(endpoint_key: str, public_key_b64: str, signature_b64: str, top
 
 
 @mcp.tool()
-def relay_topics() -> list[dict]:
-    """List public topics using routing metadata only."""
-    return tools.relay_topics()
+def relay_topics(endpoint_key: str) -> list[dict]:
+    """List topics for an actively admitted endpoint."""
+    return tools.relay_topics(endpoint_key)
 
 
 @mcp.tool()
-def relay_read(topic: str, after: int = 0) -> list[dict]:
-    """Read opaque ciphertext objects after a cursor."""
-    return tools.relay_read(topic, after)
+def relay_read(endpoint_key: str, topic: str, after: int = 0) -> list[dict]:
+    """Read opaque ciphertext objects after a cursor for an admitted endpoint."""
+    return tools.relay_read(endpoint_key, topic, after)
 
 
 app = mcp.streamable_http_app()
