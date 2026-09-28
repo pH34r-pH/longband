@@ -5,6 +5,7 @@ on:
     paths:
       - '.fleet/**'
       - '.python-version'
+      - 'rust-toolchain.toml'
       - '.github/workflows/requirements.yml'
       - 'prototype/poa/**'
       - 'prototype/relay/**'
@@ -45,6 +46,7 @@ jobs:
         working-directory: prototype/relay
     steps:
       - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
