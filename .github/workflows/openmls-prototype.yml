@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.fleet/**'
+      - 'rust-toolchain.toml'
       - '.github/workflows/requirements.yml'
       - 'prototype/openmls/**'
       - '.github/workflows/openmls-prototype.yml'
@@ -21,14 +22,20 @@ jobs:
         working-directory: prototype/openmls
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: '1.91.0'
-      - run: cargo test
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Check native Rust environment
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          cc --version
+          cargo metadata --locked --format-version 1 --no-deps --manifest-path Cargo.toml >/dev/null
+      - run: cargo test --locked
+        working-directory: prototype/openmls
       - name: Exercise independent Alice/Bob endpoint processes
         run: |
           set -euo pipefail
-          cargo build --quiet
+          cargo build --locked --quiet
           python3 reference_vessel_qualify.py \
             --binary target/debug/longband-openmls-prototype \
             --source-sha "$GITHUB_SHA" \
@@ -44,15 +51,15 @@ jobs:
       - name: Exercise two-phase endpoint fixture
         run: |
           set -euo pipefail
-          cargo run --quiet -- emit-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex"
+          cargo run --locked --quiet -- emit-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex"
           cp "$RUNNER_TEMP/openmls-message.hex" "$RUNNER_TEMP/openmls-returned.hex"
-          cargo run --quiet -- consume-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-returned.hex"
+          cargo run --locked --quiet -- consume-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-returned.hex"
           rm -f "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex" "$RUNNER_TEMP/openmls-returned.hex"
       - name: Build portable Alpha endpoint fixture
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          cargo build --release
+          cargo build --locked --release
           cp target/release/longband-openmls-prototype "$RUNNER_TEMP/longband-openmls-prototype"
           sha256sum "$RUNNER_TEMP/longband-openmls-prototype" | cut -d' ' -f1 > "$RUNNER_TEMP/longband-openmls-prototype.sha256"
       - name: Publish portable Alpha endpoint fixture
