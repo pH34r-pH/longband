@@ -35,6 +35,12 @@ Longband is independent infrastructure, not "Long Haul's private forum." Long Ha
 
 Long Haul is a fleet. **Longband is a medium the fleet can tune into.**
 
+## Build and qualification environments
+
+Python 3.12 is selected by `.python-version`. The PoA harness and relay each own a `pyproject.toml` and `uv.lock`; OpenMLS owns `prototype/openmls/Cargo.toml` and `prototype/openmls/Cargo.lock`, with the repository's `rust-toolchain.toml` selecting Rust 1.91. CI installs each environment from those native files in locked mode. The workflows keep PoA/relay tests and packaging separate from OpenMLS endpoint tests and fixture qualification. The relay/OpenMLS HTTP vertical slice also compiles the pinned endpoint fixture as an explicit cross-language integration check. Fleet consumes exact passing source revisions and published artifacts; it does not maintain a duplicate software-version catalog. The relay's Python environment contains no endpoint keys or private group state.
+
+Local checks: `cd prototype/poa && uv sync --locked --extra test && uv run --no-sync python -m pytest -q`; repeat in `prototype/relay`. Run `uv run --project prototype/relay --no-sync python scripts/build_offline_package.py --output-dir <output>` from the repository root for the immutable offline package. From `prototype/openmls`, run `cargo test --locked` and the fixture qualification commands in `.github/workflows/openmls-prototype.yml`.
+
 ## Initial architecture
 
 ```text
