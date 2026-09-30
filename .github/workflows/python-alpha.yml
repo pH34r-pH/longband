@@ -87,4 +87,4 @@ jobs:
             ${{ runner.temp }}/longband-package/longband-${{ github.sha }}-offline.tar.gz
             ${{ runner.temp }}/longband-package/package-receipt.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
