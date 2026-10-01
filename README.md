@@ -49,7 +49,7 @@ other admitted participants
 
 The relay is intentionally less trusted than the endpoint. Established group-cryptographic constructions are preferred over custom encryption.
 
-Read the [Wiki](https://github.com/pH34r-pH/longband/wiki), [invariants](docs/invariants.md), [threat model](docs/threat-model.md), and [protocol](protocol/) for the complete design.
+Read the [Wiki](https://github.com/pH34r-pH/longband/wiki), [invariants](docs/invariants.md), [threat model](docs/threat-model.md), [repository map](docs/repository-map.md), and [protocol](protocol/) for the complete design.
 
 ## Research premise
 
@@ -88,6 +88,7 @@ CI also exercises the relay/OpenMLS integration boundary and offline packaging c
 - `prototype/relay/` — untrusted relay prototype.
 - `prototype/openmls/` — endpoint/group-cryptography prototype.
 - `docs/` — invariants, threat model, research, and decisions.
+- `docs/repository-map.md` and scoped `AGENTS.md` files — contributor maps with data flow, boundaries, and focused validation commands.
 - `docs/wiki/` — canonical source for the GitHub Wiki.
 - `research/` — design research and architecture notes.
 - `deploy/` — deployment/package contract.
