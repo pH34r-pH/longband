@@ -28,7 +28,10 @@ The fixture has a locked `proptest` development dependency. The unit properties 
 ```sh
 cargo test --locked
 cargo install --locked --version 27.1.0 cargo-mutants
-cargo mutants --package longband-openmls-prototype --output /tmp/longband-cargo-mutants
+cargo mutants \
+  --package longband-openmls-prototype \
+  --exclude-re 'bob_endpoint|replace (make_fixture|make_fixture_for) ->' \
+  --output /tmp/longband-cargo-mutants
 ```
 
 For a pull-request-sized run from the repository root, create a binary-safe crate-relative diff and pass it with `--in-diff`:
@@ -44,11 +47,12 @@ git diff --binary origin/main HEAD -- prototype/openmls \
 cd prototype/openmls
 cargo mutants \
   --package longband-openmls-prototype \
+  --exclude-re 'bob_endpoint|replace (make_fixture|make_fixture_for) ->' \
   --in-diff /tmp/longband-openmls.diff \
   --output /tmp/longband-cargo-mutants
 ```
 
-The native report is `/tmp/longband-cargo-mutants/mutants.out/`, including `mutants.json` and `outcomes.json`. `cargo-mutants`' JSON format is its own native format and is intentionally retained as-is.
+The native report is `/tmp/longband-cargo-mutants/mutants.out/`, including `mutants.json` and `outcomes.json`. `cargo-mutants`' JSON format is its own native format and is intentionally retained as-is. The scoped command excludes generated whole-function replacements for the fixture constructors and interactive CLI wrapper: the former cannot compile because `MlsGroup` has no `Default`, while the latter is intentionally outside this unit-scoped run. The remaining set exercises production application-object parsing/processing and is retained as native evidence, including caught and missed mutants.
 
 ## Report boundary and interpretation
 

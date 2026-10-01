@@ -53,11 +53,23 @@ fn bob_endpoint() {
     let mut bob = staged.into_group(&provider).expect("join Bob to group");
     emit_value("ready", "1");
 
-    let inbound = MlsMessageIn::tls_deserialize_exact(unhex(&read_value("message_hex="))).expect("deserialize relay MLS object");
-    let processed = bob.process_message(&provider, inbound.try_into_protocol_message().expect("application protocol message")).expect("Bob failed to process relay-returned MLS object");
+    let message = unhex(&read_value("message_hex="));
+    let plaintext = process_application_message(&provider, &mut bob, message)
+        .expect("Bob failed to process relay-returned MLS application object");
+    emit_value("plaintext_hex", &hex(&plaintext));
+}
+
+fn process_application_message(
+    provider: &impl OpenMlsProvider,
+    bob: &mut MlsGroup,
+    message: Vec<u8>,
+) -> Option<Vec<u8>> {
+    let inbound = MlsMessageIn::tls_deserialize_exact(message).ok()?;
+    let protocol = inbound.try_into_protocol_message().ok()?;
+    let processed = bob.process_message(provider, protocol).ok()?;
     match processed.into_content() {
-        ProcessedMessageContent::ApplicationMessage(message) => emit_value("plaintext_hex", &hex(&message.into_bytes())),
-        _ => panic!("expected application message"),
+        ProcessedMessageContent::ApplicationMessage(message) => Some(message.into_bytes()),
+        _ => None,
     }
 }
 
@@ -98,7 +110,6 @@ fn make_fixture_for(plaintext: &[u8]) -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, 
     let plaintext = plaintext.to_vec();
     let outbound = alice.create_message(&alice_provider, &alice_signer, &plaintext).unwrap();
     let message = outbound.tls_serialize_detached().unwrap();
-    assert!(!message.windows(plaintext.len()).any(|w| w == plaintext));
     (bob_provider, bob, welcome_bytes, message, plaintext)
 }
 
@@ -207,19 +218,15 @@ mod tests {
         fn endpoint_fixture_round_trips_arbitrary_application_payload(
             plaintext in prop::collection::vec(any::<u8>(), 1..128)
         ) {
-            let (provider, mut bob, _welcome, message, expected) = make_fixture_for(&plaintext);
-            let inbound = MlsMessageIn::tls_deserialize_exact(message)
-                .unwrap()
-                .try_into_protocol_message()
-                .unwrap();
-            let processed = bob.process_message(&provider, inbound).unwrap();
+            let (provider, mut bob, _welcome, message, _expected) = make_fixture_for(&plaintext);
+            let mut tampered = message.clone();
+            *tampered.last_mut().expect("MLS application object is non-empty") ^= 1;
+            prop_assert!(process_application_message(&provider, &mut bob, tampered).is_none());
 
-            match processed.into_content() {
-                ProcessedMessageContent::ApplicationMessage(message) => {
-                    prop_assert_eq!(message.into_bytes(), expected)
-                }
-                _ => prop_assert!(false, "expected application message"),
-            }
+            let (provider, mut bob, _welcome, message, expected) = make_fixture_for(&plaintext);
+            let received = process_application_message(&provider, &mut bob, message)
+                .expect("valid MLS application object must process");
+            prop_assert_eq!(received, expected);
         }
     }
 

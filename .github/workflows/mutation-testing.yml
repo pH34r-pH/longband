@@ -87,7 +87,17 @@ jobs:
           set -euo pipefail
           output="$RUNNER_TEMP/cargo-mutants"
           mkdir -p "$output"
-          args=(--package longband-openmls-prototype --jobs 2 --timeout 180 --output "$output")
+          # Keep the native run focused on production parsing/endpoint behavior.
+          # Whole-function replacements for fixture constructors cannot compile
+          # because MlsGroup has no Default; the interactive CLI wrapper is
+          # intentionally outside this unit-scoped mutation run.
+          args=(
+            --package longband-openmls-prototype
+            --jobs 2
+            --timeout 180
+            --output "$output"
+            --exclude-re 'bob_endpoint|replace (make_fixture|make_fixture_for) ->'
+          )
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             diff="$RUNNER_TEMP/openmls.diff"
             git diff --binary "$BASE_SHA" HEAD -- . \
