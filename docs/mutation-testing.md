@@ -31,10 +31,17 @@ cargo install --locked --version 27.1.0 cargo-mutants
 cargo mutants --package longband-openmls-prototype --output /tmp/longband-cargo-mutants
 ```
 
-For a pull-request-sized run, create a binary-safe diff and pass it with `--in-diff`:
+For a pull-request-sized run from the repository root, create a binary-safe crate-relative diff and pass it with `--in-diff`:
 
 ```sh
-git diff --binary origin/main HEAD -- . > /tmp/longband-openmls.diff
+git diff --binary origin/main HEAD -- prototype/openmls \
+  | sed \
+      -e 's#^diff --git a/prototype/openmls/#diff --git a/#' \
+      -e 's# b/prototype/openmls/# b/#' \
+      -e 's#^--- a/prototype/openmls/#--- a/#' \
+      -e 's#^+++ b/prototype/openmls/#+++ b/#' \
+  > /tmp/longband-openmls.diff
+cd prototype/openmls
 cargo mutants \
   --package longband-openmls-prototype \
   --in-diff /tmp/longband-openmls.diff \

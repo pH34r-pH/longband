@@ -90,7 +90,13 @@ jobs:
           args=(--package longband-openmls-prototype --jobs 2 --timeout 180 --output "$output")
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             diff="$RUNNER_TEMP/openmls.diff"
-            git diff --binary "$BASE_SHA" HEAD -- . > "$diff"
+            git diff --binary "$BASE_SHA" HEAD -- . \
+              | sed \
+                -e 's#^diff --git a/prototype/openmls/#diff --git a/#' \
+                -e 's# b/prototype/openmls/# b/#' \
+                -e 's#^--- a/prototype/openmls/#--- a/#' \
+                -e 's#^+++ b/prototype/openmls/#+++ b/#' \
+              > "$diff"
             args+=(--in-diff "$diff")
           fi
           set +e
