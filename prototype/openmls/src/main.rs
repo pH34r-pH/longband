@@ -53,11 +53,23 @@ fn bob_endpoint() {
     let mut bob = staged.into_group(&provider).expect("join Bob to group");
     emit_value("ready", "1");
 
-    let inbound = MlsMessageIn::tls_deserialize_exact(unhex(&read_value("message_hex="))).expect("deserialize relay MLS object");
-    let processed = bob.process_message(&provider, inbound.try_into_protocol_message().expect("application protocol message")).expect("Bob failed to process relay-returned MLS object");
+    let message = unhex(&read_value("message_hex="));
+    let plaintext = process_application_message(&provider, &mut bob, message)
+        .expect("Bob failed to process relay-returned MLS application object");
+    emit_value("plaintext_hex", &hex(&plaintext));
+}
+
+fn process_application_message(
+    provider: &impl OpenMlsProvider,
+    bob: &mut MlsGroup,
+    message: Vec<u8>,
+) -> Option<Vec<u8>> {
+    let inbound = MlsMessageIn::tls_deserialize_exact(message).ok()?;
+    let protocol = inbound.try_into_protocol_message().ok()?;
+    let processed = bob.process_message(provider, protocol).ok()?;
     match processed.into_content() {
-        ProcessedMessageContent::ApplicationMessage(message) => emit_value("plaintext_hex", &hex(&message.into_bytes())),
-        _ => panic!("expected application message"),
+        ProcessedMessageContent::ApplicationMessage(message) => Some(message.into_bytes()),
+        _ => None,
     }
 }
 
@@ -80,7 +92,7 @@ fn alice_endpoint() {
     emit_value("message_hex", &hex(&message));
 }
 
-fn make_fixture() -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, Vec<u8>, Vec<u8>) {
+fn make_fixture_for(plaintext: &[u8]) -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, Vec<u8>, Vec<u8>) {
     let suite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
     let alice_provider = OpenMlsRustCrypto::default();
     let bob_provider = OpenMlsRustCrypto::default();
@@ -95,11 +107,14 @@ fn make_fixture() -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, Vec<u8>, Vec<u8>) {
     let welcome = match welcome_in.extract() { MlsMessageBodyIn::Welcome(w) => w, _ => panic!("expected Welcome") };
     let staged = StagedWelcome::new_from_welcome(&bob_provider, &MlsGroupJoinConfig::default(), welcome, Some(alice.export_ratchet_tree().into())).unwrap();
     let bob = staged.into_group(&bob_provider).unwrap();
-    let plaintext = b"longband alpha real OpenMLS application object".to_vec();
+    let plaintext = plaintext.to_vec();
     let outbound = alice.create_message(&alice_provider, &alice_signer, &plaintext).unwrap();
     let message = outbound.tls_serialize_detached().unwrap();
-    assert!(!message.windows(plaintext.len()).any(|w| w == plaintext));
     (bob_provider, bob, welcome_bytes, message, plaintext)
+}
+
+fn make_fixture() -> (OpenMlsRustCrypto, MlsGroup, Vec<u8>, Vec<u8>, Vec<u8>) {
+    make_fixture_for(b"longband alpha real OpenMLS application object")
 }
 
 fn emit_fixture(path: &str) {
@@ -183,5 +198,55 @@ fn main() {
             args.get(3).expect("returned message path required"),
         ),
         _ => println!("longband-openmls-prototype: lifecycle fixture; modes include alice-endpoint and bob-endpoint"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 8, .. ProptestConfig::default() })]
+
+        #[test]
+        fn hex_encoding_round_trips_arbitrary_bytes(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
+            prop_assert_eq!(unhex(&hex(&bytes)), bytes);
+        }
+
+        #[test]
+        fn endpoint_fixture_round_trips_arbitrary_application_payload(
+            plaintext in prop::collection::vec(any::<u8>(), 1..128)
+        ) {
+            let (provider, mut bob, _welcome, message, _expected) = make_fixture_for(&plaintext);
+            let mut tampered = message.clone();
+            *tampered.last_mut().expect("MLS application object is non-empty") ^= 1;
+            prop_assert!(process_application_message(&provider, &mut bob, tampered).is_none());
+
+            let (provider, mut bob, _welcome, message, expected) = make_fixture_for(&plaintext);
+            let received = process_application_message(&provider, &mut bob, message)
+                .expect("valid MLS application object must process");
+            prop_assert_eq!(received, expected);
+        }
+    }
+
+    #[test]
+    fn fixture_file_commands_round_trip_through_native_helpers() {
+        let directory = tempfile::tempdir().unwrap();
+        let fixture = directory.path().join("fixture.txt");
+        let state = directory.path().join("state.txt");
+        let message = directory.path().join("message.hex");
+
+        emit_fixture(fixture.to_str().unwrap());
+        verify_message(fixture.to_str().unwrap());
+        emit_two_phase(state.to_str().unwrap(), message.to_str().unwrap());
+        consume_two_phase(state.to_str().unwrap(), message.to_str().unwrap());
+
+        let invalid_fixture = directory.path().join("invalid-fixture.txt");
+        std::fs::write(&invalid_fixture, "message_hex=00\nplaintext_hex=ff\n").unwrap();
+        assert!(std::panic::catch_unwind(|| verify_message(invalid_fixture.to_str().unwrap())).is_err());
+
+        std::fs::write(&message, "00\n").unwrap();
+        assert!(std::panic::catch_unwind(|| consume_two_phase(state.to_str().unwrap(), message.to_str().unwrap())).is_err());
     }
 }

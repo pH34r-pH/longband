@@ -1,8 +1,10 @@
 import base64
+
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from longband_poa.possession import EndpointPossession
+
 
 def identity():
     private = Ed25519PrivateKey.generate()
@@ -26,3 +28,16 @@ def test_signature_from_other_endpoint_fails():
     challenge = registry.begin(endpoint)
     signature = base64.b64encode(bob.sign(challenge.signing_bytes)).decode()
     assert not registry.verify(endpoint, public, signature)
+
+
+@pytest.mark.parametrize("field", ["public", "signature"])
+def test_non_base64_possession_fields_are_rejected(field):
+    private, endpoint, public = identity()
+    registry = EndpointPossession()
+    challenge = registry.begin(endpoint if field == "signature" else f"{endpoint}!")
+    signature = base64.b64encode(private.sign(challenge.signing_bytes)).decode()
+
+    if field == "public":
+        assert not registry.verify(challenge.endpoint_key, public + "!", signature)
+    else:
+        assert not registry.verify(endpoint, public, signature + "!")

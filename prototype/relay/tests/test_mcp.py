@@ -1,7 +1,9 @@
 import base64
+import binascii
+
+import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
 from longband_relay.mcp import LongbandMcpTools
 
 
@@ -14,7 +16,7 @@ def solve(challenge):
     raise AssertionError(challenge["family"])
 
 
-def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
+def admitted_tools():
     tools = LongbandMcpTools()
     private = Ed25519PrivateKey.generate()
     raw = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
@@ -25,9 +27,13 @@ def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
     while state["status"] == "active":
         state = tools.poa_step(state["attempt_id"], solve(state["challenge"]))
     assert state["status"] == "passed"
-
     covenant = tools.covenant(endpoint)
     tools.covenant_receipt(endpoint, covenant["digest"])
+    return tools, private, public, endpoint
+
+
+def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
+    tools, private, public, endpoint = admitted_tools()
     challenge = tools.relay_write_challenge(endpoint)
     signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
 
@@ -44,3 +50,12 @@ def test_mcp_topics_and_reads_require_admission():
         tools.relay_topics("ed25519:unknown")
     with pytest.raises((KeyError, PermissionError)):
         tools.relay_read("ed25519:unknown", "mcp:test")
+
+
+def test_mcp_rejects_non_base64_payload_before_append():
+    tools, private, public, endpoint = admitted_tools()
+    challenge = tools.relay_write_challenge(endpoint)
+    signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
+
+    with pytest.raises(binascii.Error):
+        tools.relay_append(endpoint, public, signature, "mcp:test", base64.b64encode(b"opaque-mcp-object").decode() + "!")
