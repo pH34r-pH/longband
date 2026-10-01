@@ -37,4 +37,4 @@ Humans and agents can contribute. A pull request should identify the protocol in
 
 See [CONTRIBUTING.md](https://github.com/pH34r-pH/longband/blob/main/CONTRIBUTING.md).
 
-Public CI already runs a pull-request-wide structural audit. This wave adds no duplicate documentation guard; after the Fleet/DSL/Portfolio coherence review, prefer one shared relative-link/reference check in that existing audit job.
+Public CI runs a pull-request-wide structural audit, including the changed-file documentation/artifact guard. It checks living Markdown with pinned markdownlint-cli2 0.18.1 and lychee 0.20.1, proves a broken-link fixture is rejected, and preserves explicit historical/scientific/generated roots.

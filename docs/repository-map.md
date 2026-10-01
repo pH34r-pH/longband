@@ -69,8 +69,8 @@ Use the narrowest command for the changed boundary, then run the relevant cross-
 | Protocol, covenant, or docs | `git diff --check`; check every changed relative Markdown link from its containing file |
 | All public Alpha checks | `uv sync --project prototype/poa --locked --extra test && uv sync --project prototype/relay --locked --extra test && uv run --project prototype/poa --no-sync python -m pytest -q && uv run --project prototype/relay --no-sync python -m pytest -q && cargo test --locked --manifest-path prototype/openmls/Cargo.toml` |
 
-The current workflows are [`python-alpha.yml`](../.github/workflows/python-alpha.yml), [`openmls-prototype.yml`](../.github/workflows/openmls-prototype.yml), the pull-request-wide structural audit, and [`wiki-sync.yml`](../.github/workflows/wiki-sync.yml). Public package artifacts are exact-SHA evidence, not deployment authorization.
+The current workflows are [`python-alpha.yml`](../.github/workflows/python-alpha.yml), [`openmls-prototype.yml`](../.github/workflows/openmls-prototype.yml), the pull-request-wide structural audit, and [`wiki-sync.yml`](../.github/workflows/wiki-sync.yml). The structural audit includes the changed-file documentation/artifact guard, pinned Markdown style/link checks, and a broken-link fixture, all on the existing read-only PR runner. Public package artifacts are exact-SHA evidence, not deployment authorization.
 
-## Smallest future CI integration
+## CI integration boundary
 
-This wave intentionally changes no workflow behavior and adds no new guard. Existing structural quality audit already runs on every pull request. After the Fleet/DSL/Portfolio coherence review, the smallest useful integration is one shared relative-link/reference check added to that existing audit job, with no parallel docs workflow and no duplicate repository-specific guard.
+The guard is intentionally changed-file-only: living Markdown is checked for style and actual relative links; explicit historical/scientific/generated roots are preserved, while new incidental cache/temp paths are rejected even below those roots. It does not inventory or duplicate the repository map. Tool versions are pinned in the workflow (`markdownlint-cli2` 0.18.1 and `lychee` 0.20.1).
