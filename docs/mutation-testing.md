@@ -30,6 +30,7 @@ cargo test --locked
 cargo install --locked --version 27.1.0 cargo-mutants
 cargo mutants \
   --package longband-openmls-prototype \
+  --cap-lints true \
   --exclude-re 'bob_endpoint|replace (make_fixture|make_fixture_for) ->' \
   --output /tmp/longband-cargo-mutants
 ```
@@ -47,6 +48,7 @@ git diff --binary origin/main HEAD -- prototype/openmls \
 cd prototype/openmls
 cargo mutants \
   --package longband-openmls-prototype \
+  --cap-lints true \
   --exclude-re 'bob_endpoint|replace (make_fixture|make_fixture_for) ->' \
   --in-diff /tmp/longband-openmls.diff \
   --output /tmp/longband-cargo-mutants

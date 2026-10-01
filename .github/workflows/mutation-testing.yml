@@ -96,6 +96,7 @@ jobs:
             --jobs 2
             --timeout 180
             --output "$output"
+            --cap-lints true
             --exclude-re 'bob_endpoint|replace (make_fixture|make_fixture_for) ->'
           )
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
