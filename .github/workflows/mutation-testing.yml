@@ -45,16 +45,23 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             args+=(--diff "$BASE_SHA")
           fi
+          report="$RUNNER_TEMP/irradiate-${{ matrix.project }}.json"
           uv run --no-sync irradiate run src \
             --tests-dir tests \
             "${args[@]}" \
             --report json \
-            --output "$RUNNER_TEMP/irradiate-${{ matrix.project }}.json"
-      - name: Publish native Stryker v2 report
+            --output "$report"
+          if [[ ! -s "$report" ]]; then
+            printf '%s\n' 'No Python source functions changed in the comparison diff; irradiate produced no mutants.' \
+              > "$RUNNER_TEMP/irradiate-${{ matrix.project }}.no-mutants.txt"
+          fi
+      - name: Publish native irradiate evidence
         uses: actions/upload-artifact@v4
         with:
           name: irradiate-${{ matrix.project }}-${{ github.sha }}
-          path: ${{ runner.temp }}/irradiate-${{ matrix.project }}.json
+          path: |
+            ${{ runner.temp }}/irradiate-${{ matrix.project }}.json
+            ${{ runner.temp }}/irradiate-${{ matrix.project }}.no-mutants.txt
           if-no-files-found: error
           retention-days: 7
 
