@@ -1,3 +1,4 @@
+import pytest
 from longband_poa.challenges import ConstraintRevision, StateIntegration
 from longband_poa.core import AttemptStatus, Coordinator
 
@@ -35,3 +36,16 @@ def test_wrong_transition_fails_without_advancing():
     assert attempt.index == 0
     assert len(attempt.transitions) == 1
     assert not attempt.transitions[0].accepted
+
+
+@pytest.mark.parametrize("submitted", ["wrong", "passed"])
+def test_inactive_attempt_cannot_be_advanced(submitted):
+    coordinator = Coordinator([StateIntegration()])
+    attempt = coordinator.begin("tripkey:test-endpoint")
+    if submitted == "passed":
+        prompt = attempt.current.prompt
+        submitted = (prompt["left"] + prompt["right"]) * prompt["salt"]
+    attempt = coordinator.step(attempt.attempt_id, submitted)
+
+    with pytest.raises(ValueError):
+        coordinator.step(attempt.attempt_id, submitted)
