@@ -1,0 +1,104 @@
+name: Mutation and property checks
+
+on:
+  pull_request:
+    paths:
+      - 'prototype/poa/**'
+      - 'prototype/relay/**'
+      - 'prototype/openmls/**'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/mutation-testing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python ${{ matrix.project }} mutation baseline
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [poa, relay]
+    defaults:
+      run:
+        working-directory: prototype/${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: prototype/${{ matrix.project }}/uv.lock
+      - name: Sync locked test and mutation environments
+        run: uv sync --locked --extra test --extra mutation
+      - name: Run property and regression tests
+        run: uv run --no-sync python -m pytest -q
+      - name: Run native irradiate report
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          args=(--covered-only --verify-survivors)
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            args+=(--diff "$BASE_SHA")
+          fi
+          uv run --no-sync irradiate run src \
+            --tests-dir tests \
+            "${args[@]}" \
+            --report json \
+            --output "$RUNNER_TEMP/irradiate-${{ matrix.project }}.json"
+      - name: Publish native Stryker v2 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: irradiate-${{ matrix.project }}-${{ github.sha }}
+          path: ${{ runner.temp }}/irradiate-${{ matrix.project }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  rust:
+    name: Rust OpenMLS mutation baseline
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype/openmls
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run property and regression tests
+        run: cargo test --locked
+      - name: Install pinned cargo-mutants
+        run: cargo install --locked --version 27.1.0 cargo-mutants
+      - name: Run native cargo-mutants report
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/cargo-mutants"
+          mkdir -p "$output"
+          args=(--package longband-openmls-prototype --jobs 2 --timeout 180 --output "$output")
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            diff="$RUNNER_TEMP/openmls.diff"
+            git diff --binary "$BASE_SHA" HEAD -- . > "$diff"
+            args+=(--in-diff "$diff")
+          fi
+          set +e
+          cargo mutants "${args[@]}"
+          status=$?
+          set -e
+          if [[ "$status" -ne 0 && "$status" -ne 2 ]]; then
+            exit "$status"
+          fi
+          test -f "$output/mutants.out/outcomes.json"
+          echo "cargo-mutants completed with status $status; missed mutants are retained as review evidence."
+      - name: Publish native cargo-mutants report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-mutants-openmls-${{ github.sha }}
+          path: ${{ runner.temp }}/cargo-mutants/mutants.out/
+          if-no-files-found: error
+          retention-days: 7

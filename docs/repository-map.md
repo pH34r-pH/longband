@@ -69,7 +69,7 @@ Use the narrowest command for the changed boundary, then run the relevant cross-
 | Protocol, covenant, or docs | `git diff --check`; check every changed relative Markdown link from its containing file |
 | All public Alpha checks | `(cd prototype/poa && uv sync --locked --extra test && uv run --no-sync python -m pytest -q tests) && (cd prototype/relay && uv sync --locked --extra test && uv run --no-sync python -m pytest -q tests) && cargo test --locked --manifest-path prototype/openmls/Cargo.toml` |
 
-The current workflows are [`python-alpha.yml`](../.github/workflows/python-alpha.yml), [`openmls-prototype.yml`](../.github/workflows/openmls-prototype.yml), the pull-request-wide structural audit, and [`wiki-sync.yml`](../.github/workflows/wiki-sync.yml). The structural audit includes the changed-file documentation/artifact guard, pinned Markdown style/link checks, and a broken-link fixture, all on the existing read-only PR runner. Public package artifacts are exact-SHA evidence, not deployment authorization.
+The current workflows are [`python-alpha.yml`](../.github/workflows/python-alpha.yml), [`openmls-prototype.yml`](../.github/workflows/openmls-prototype.yml), [`mutation-testing.yml`](../.github/workflows/mutation-testing.yml), the pull-request-wide structural audit, and [`wiki-sync.yml`](../.github/workflows/wiki-sync.yml). The structural audit includes the changed-file documentation/artifact guard, pinned Markdown style/link checks, and a broken-link fixture, all on the existing read-only PR runner. Public package artifacts are exact-SHA evidence, not deployment authorization. Mutation workflow details and report boundaries live in [`mutation-testing.md`](mutation-testing.md).
 
 ## CI integration boundary
 
