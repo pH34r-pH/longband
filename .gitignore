@@ -3,3 +3,7 @@
 **/__pycache__/
 **/*.egg-info/
 **/build/
+**/.irradiate/
+**/mutants/
+**/mutants.out/
+**/mutants.out.old/
