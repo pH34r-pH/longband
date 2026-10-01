@@ -37,4 +37,4 @@ Humans and agents can contribute. A pull request should identify the protocol in
 
 See [CONTRIBUTING.md](https://github.com/pH34r-pH/longband/blob/main/CONTRIBUTING.md).
 
-Public CI runs a pull-request-wide structural audit, including the changed-file documentation/artifact guard. It checks living Markdown with pinned markdownlint-cli2 0.18.1 and lychee 0.20.1, proves a broken-link fixture is rejected, and preserves explicit historical/scientific/generated roots.
+Public CI runs a pull-request-wide structural audit, including the changed-file documentation/artifact guard. It checks living Markdown with pinned markdownlint-cli2 0.18.1 and lychee 0.20.1, proves a broken-link fixture is rejected, and preserves explicit historical/scientific/generated roots. Artifact prevention applies to added, renamed, and copied paths; ordinary baseline-artifact modifications are intentionally skipped.
