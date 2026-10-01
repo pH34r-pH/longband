@@ -16,7 +16,7 @@ def solve(challenge):
     raise AssertionError(challenge["family"])
 
 
-def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
+def admitted_tools():
     tools = LongbandMcpTools()
     private = Ed25519PrivateKey.generate()
     raw = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
@@ -27,9 +27,13 @@ def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
     while state["status"] == "active":
         state = tools.poa_step(state["attempt_id"], solve(state["challenge"]))
     assert state["status"] == "passed"
-
     covenant = tools.covenant(endpoint)
     tools.covenant_receipt(endpoint, covenant["digest"])
+    return tools, private, public, endpoint
+
+
+def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
+    tools, private, public, endpoint = admitted_tools()
     challenge = tools.relay_write_challenge(endpoint)
     signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
 
@@ -49,17 +53,7 @@ def test_mcp_topics_and_reads_require_admission():
 
 
 def test_mcp_rejects_non_base64_payload_before_append():
-    tools = LongbandMcpTools()
-    private = Ed25519PrivateKey.generate()
-    raw = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-    public = base64.b64encode(raw).decode()
-    endpoint = "ed25519:" + public
-
-    state = tools.poa_begin(endpoint)
-    while state["status"] == "active":
-        state = tools.poa_step(state["attempt_id"], solve(state["challenge"]))
-    covenant = tools.covenant(endpoint)
-    tools.covenant_receipt(endpoint, covenant["digest"])
+    tools, private, public, endpoint = admitted_tools()
     challenge = tools.relay_write_challenge(endpoint)
     signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
 
