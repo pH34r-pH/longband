@@ -54,10 +54,25 @@ cargo mutants \
   --output /tmp/longband-cargo-mutants
 ```
 
-The native report is `/tmp/longband-cargo-mutants/mutants.out/`, including `mutants.json` and `outcomes.json`. `cargo-mutants`' JSON format is its own native format and is intentionally retained as-is. The scoped command excludes generated whole-function replacements for the fixture constructors and interactive CLI wrapper: the former cannot compile because `MlsGroup` has no `Default`, while the latter is intentionally outside this unit-scoped run. The remaining set exercises production application-object parsing/processing and is retained as native evidence, including caught and missed mutants.
+The native report is `/tmp/longband-cargo-mutants/mutants.out/`, including `mutants.json` and `outcomes.json`. `cargo-mutants`' JSON format is retained unchanged. A small adapter also converts `outcomes.json` into the vendored [official Stryker `mutation-testing-report-schema` v2.0.5](https://github.com/stryker-mutator/mutation-testing-elements/blob/v2.0.5/packages/report-schema/src/mutation-testing-report-schema.json) contract at `/tmp/longband-cargo-mutants/stryker-report.json`:
+
+```sh
+uv sync --project prototype/openmls/reporting --locked
+uv run --project prototype/openmls/reporting --no-sync \
+  python -m unittest discover -s prototype/openmls/reporting/tests -v
+uv run --project prototype/openmls/reporting --no-sync \
+  python prototype/openmls/reporting/cargo_mutants_to_stryker.py \
+    --input /tmp/longband-cargo-mutants/mutants.out/outcomes.json \
+    --source-root prototype/openmls \
+    --output /tmp/longband-cargo-mutants/stryker-report.json
+```
+
+The adapter maps `CaughtMutant` to `Killed`, `MissedMutant` to `Survived`, `Unviable` to `CompileError`, `Timeout` to `Timeout`, `Failure` to `RuntimeError`, and `Success` to `Pending` because cargo-mutants only reports that summary when it has no test-phase result. Baseline scenarios are omitted. Unknown summaries, unsafe paths, and inconsistent mutant counts fail conversion rather than being assigned a guessed status. Cargo-mutants does not report test IDs or coverage, so those Stryker fields remain absent. The converter validates its output against the vendored upstream JSON Schema before writing it. A pull request that changes no production `src/*.rs` file gets a no-mutants marker in the same Rust artifact and no fabricated empty report; manual dispatch continues to run the full native baseline.
+
+The scoped command excludes generated whole-function replacements for the fixture constructors and interactive CLI wrapper: the former cannot compile because `MlsGroup` has no `Default`, while the latter is intentionally outside this unit-scoped run. The remaining set exercises production application-object parsing/processing and is retained as native evidence, including caught and missed mutants.
 
 ## Report boundary and interpretation
 
-Python and Rust reports must not be merged into a made-up Longband schema or compared as if their scores had identical semantics. Irradiate emits the requested Stryker v2 schema directly; cargo-mutants emits its own native `mutants.out` evidence. A Rust-to-Stryker converter remains an explicit follow-up limit for #65 and is not introduced here because the repository does not own such an adapter.
+Python and Rust reports use the same Stryker v2 report contract, while their native evidence is retained independently. The adapter does not make their mutation operators, coverage, or score semantics identical. Python's Stryker report comes directly from irradiate; Rust's report is derived from cargo-mutants outcomes by the tested adapter. The Rust artifact contains both unchanged `mutants.out/` evidence and the converted report in the existing upload, with the same 7-day retention.
 
 The GitHub workflow runs the ordinary property/regression tests first, then runs diff-scoped mutation on pull requests and full mutation on manual dispatch. When a pull-request diff changes no Python source function, the workflow stores a plain no-mutants marker instead of fabricating an empty schema report. `cargo-mutants` uses exit status 2 when it finds missed mutants; the workflow accepts that expected baseline status only after verifying that the native outcomes report exists, so survivors remain review evidence rather than silently disappearing. Mutation survivors are not an automatic protocol/security verdict; no new mutation-score threshold is imposed until a baseline has been reviewed.
