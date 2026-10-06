@@ -95,6 +95,15 @@ jobs:
           set -euo pipefail
           output="$RUNNER_TEMP/cargo-mutants"
           mkdir -p "$output"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            changed_rust_sources="$(git -C "$GITHUB_WORKSPACE" diff --name-only "$BASE_SHA" HEAD -- prototype/openmls/src)"
+            if ! grep -Eq '\.rs$' <<< "$changed_rust_sources"; then
+              printf '%s\n' 'No production Rust source files changed in this comparison diff; cargo-mutants did not run.' \
+                > "$output/no-mutants.txt"
+              echo "No production Rust source changes; recording a no-mutants marker."
+              exit 0
+            fi
+          fi
           # Keep the native run focused on production parsing/endpoint behavior.
           # Whole-function replacements for fixture constructors cannot compile
           # because MlsGroup has no Default; the interactive CLI wrapper is
@@ -138,5 +147,6 @@ jobs:
           path: |
             ${{ runner.temp }}/cargo-mutants/mutants.out/
             ${{ runner.temp }}/cargo-mutants/stryker-report.json
+            ${{ runner.temp }}/cargo-mutants/no-mutants.txt
           if-no-files-found: error
           retention-days: 7
