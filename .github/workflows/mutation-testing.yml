@@ -78,6 +78,14 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Run property and regression tests
         run: cargo test --locked
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: prototype/openmls/reporting/uv.lock
+      - name: Sync locked Rust report converter environment
+        run: uv sync --project reporting --locked
+      - name: Test cargo-mutants report conversion and Stryker schema
+        run: uv run --project reporting --no-sync python -m unittest discover -s reporting/tests -v
       - name: Install pinned cargo-mutants
         run: cargo install --locked --version 27.1.0 cargo-mutants
       - name: Run native cargo-mutants report
@@ -118,11 +126,17 @@ jobs:
             exit "$status"
           fi
           test -f "$output/mutants.out/outcomes.json"
+          uv run --project reporting --no-sync python reporting/cargo_mutants_to_stryker.py \
+            --input "$output/mutants.out/outcomes.json" \
+            --source-root . \
+            --output "$output/stryker-report.json"
           echo "cargo-mutants completed with status $status; missed mutants are retained as review evidence."
       - name: Publish native cargo-mutants report
         uses: actions/upload-artifact@v4
         with:
           name: cargo-mutants-openmls-${{ github.sha }}
-          path: ${{ runner.temp }}/cargo-mutants/mutants.out/
+          path: |
+            ${{ runner.temp }}/cargo-mutants/mutants.out/
+            ${{ runner.temp }}/cargo-mutants/stryker-report.json
           if-no-files-found: error
           retention-days: 7

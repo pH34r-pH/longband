@@ -1,0 +1,36 @@
+{
+  "cargo_mutants_version": "27.1.0",
+  "total_mutants": 6,
+  "caught": 1,
+  "missed": 1,
+  "timeout": 1,
+  "unviable": 1,
+  "success": 1,
+  "outcomes": [
+    {"scenario": "Baseline", "summary": "Success"},
+    {
+      "scenario": {"Mutant": {"name": "src/main.rs:1:23: caught", "file": "src/main.rs", "span": {"start": {"line": 1, "column": 23}, "end": {"line": 1, "column": 27}}, "replacement": "false", "genre": "BinaryOperator"}},
+      "summary": "CaughtMutant"
+    },
+    {
+      "scenario": {"Mutant": {"name": "src/main.rs:2:23: missed", "file": "src/main.rs", "span": {"start": {"line": 2, "column": 23}, "end": {"line": 2, "column": 27}}, "replacement": "false", "genre": "BinaryOperator"}},
+      "summary": "MissedMutant"
+    },
+    {
+      "scenario": {"Mutant": {"name": "src/main.rs:3:23: unviable", "file": "src/main.rs", "span": {"start": {"line": 3, "column": 23}, "end": {"line": 3, "column": 27}}, "replacement": "()", "genre": "FnValue"}},
+      "summary": "Unviable"
+    },
+    {
+      "scenario": {"Mutant": {"name": "src/main.rs:4:23: timed out", "file": "src/main.rs", "span": {"start": {"line": 4, "column": 23}, "end": {"line": 4, "column": 27}}, "replacement": "true", "genre": "UnaryOperator"}},
+      "summary": "Timeout"
+    },
+    {
+      "scenario": {"Mutant": {"name": "src/main.rs:5:23: failed", "file": "src/main.rs", "span": {"start": {"line": 5, "column": 23}, "end": {"line": 5, "column": 27}}, "replacement": "0", "genre": "MatchArm"}},
+      "summary": "Failure"
+    },
+    {
+      "scenario": {"Mutant": {"name": "src/main.rs:6:23: not tested", "file": "src/main.rs", "span": {"start": {"line": 6, "column": 23}, "end": {"line": 6, "column": 27}}, "replacement": "1", "genre": "StructField"}},
+      "summary": "Success"
+    }
+  ]
+}
