@@ -81,6 +81,44 @@ def validate_report(report: dict[str, Any]) -> None:
         raise ReportConversionError(f"generated report fails the Stryker v2 schema at {location}: {first.message}")
 
 
+def _map_mutant_outcome(
+    outcome: dict[str, Any],
+    mutant: dict[str, Any],
+    index: int,
+    source_root: Path,
+    prefix: PurePosixPath,
+) -> tuple[str, str, dict[str, Any]]:
+    context = f"mutant outcome {index}"
+    summary = _required_string(outcome, "summary", context)
+    status = SUMMARY_TO_STATUS.get(summary)
+    if status is None:
+        raise ReportConversionError(f"{context} has unknown cargo-mutants summary {summary!r}")
+
+    raw_file = _required_string(mutant, "file", context)
+    source, relative_file = _load_source(source_root, raw_file)
+    span = mutant.get("span")
+    if not isinstance(span, dict) or not isinstance(span.get("start"), dict) or not isinstance(span.get("end"), dict):
+        raise ReportConversionError(f"{context} must contain a start/end source span")
+    genre = _required_string(mutant, "genre", context)
+    name = _required_string(mutant, "name", context)
+    replacement = mutant.get("replacement")
+    if not isinstance(replacement, str):
+        raise ReportConversionError(f"{context} replacement must be a string")
+
+    canonical_mutant = json.dumps(mutant, sort_keys=True, separators=(",", ":"))
+    result = {
+        "id": hashlib.sha256(canonical_mutant.encode("utf-8")).hexdigest(),
+        "mutatorName": genre,
+        "description": name,
+        "replacement": replacement,
+        "location": span,
+        "status": status,
+    }
+    if summary == "Success":
+        result["statusReason"] = "cargo-mutants reported success without a test-phase result."
+    return (prefix / relative_file).as_posix(), source, result
+
+
 def convert_outcomes(
     native_report: dict[str, Any], source_root: Path, file_prefix: str = "prototype/openmls"
 ) -> dict[str, Any]:
@@ -104,47 +142,17 @@ def convert_outcomes(
         if mutant is None:
             continue
         mutant_count += 1
-        context = f"mutant outcome {index}"
-        summary = _required_string(outcome, "summary", context)
-        status = SUMMARY_TO_STATUS.get(summary)
-        if status is None:
-            raise ReportConversionError(f"{context} has unknown cargo-mutants summary {summary!r}")
-
-        raw_file = _required_string(mutant, "file", context)
-        source, relative_file = _load_source(source_root, raw_file)
-        span = mutant.get("span")
-        if not isinstance(span, dict) or not isinstance(span.get("start"), dict) or not isinstance(span.get("end"), dict):
-            raise ReportConversionError(f"{context} must contain a start/end source span")
-        genre = _required_string(mutant, "genre", context)
-        name = _required_string(mutant, "name", context)
-        replacement = mutant.get("replacement")
-        if not isinstance(replacement, str):
-            raise ReportConversionError(f"{context} replacement must be a string")
-
-        report_file = (prefix / relative_file).as_posix()
+        report_file, source, result = _map_mutant_outcome(outcome, mutant, index, source_root, prefix)
+        mutant_id = result["id"]
+        if mutant_id in seen_ids:
+            raise ReportConversionError(f"cargo-mutants report repeats mutant {result['description']!r}")
+        seen_ids.add(mutant_id)
         file_result = files.setdefault(
             report_file,
             {"language": "rust", "source": source, "mutants": []},
         )
         if file_result["source"] != source:
             raise ReportConversionError(f"source for {report_file!r} changed during conversion")
-
-        canonical_mutant = json.dumps(mutant, sort_keys=True, separators=(",", ":"))
-        mutant_id = hashlib.sha256(canonical_mutant.encode("utf-8")).hexdigest()
-        if mutant_id in seen_ids:
-            raise ReportConversionError(f"cargo-mutants report repeats mutant {name!r}")
-        seen_ids.add(mutant_id)
-
-        result = {
-            "id": mutant_id,
-            "mutatorName": genre,
-            "description": name,
-            "replacement": replacement,
-            "location": span,
-            "status": status,
-        }
-        if summary == "Success":
-            result["statusReason"] = "cargo-mutants reported success without a test-phase result."
         file_result["mutants"].append(result)
 
     expected_count = native_report.get("total_mutants")
