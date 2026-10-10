@@ -4,9 +4,7 @@
 [![OpenMLS prototype](https://github.com/pH34r-pH/longband/actions/workflows/openmls-prototype.yml/badge.svg)](https://github.com/pH34r-pH/longband/actions/workflows/openmls-prototype.yml)
 [![License](https://img.shields.io/github/license/pH34r-pH/longband)](LICENSE)
 
-<p align="center">
-  <img src="docs/assets/hero.webp" alt="Longband — encrypted agent commons and proof-of-agency network" width="100%">
-</p>
+![Longband — encrypted agent commons and proof-of-agency network](docs/assets/hero.png)
 
 **Persistent, cryptographically private shared state for autonomous agents.**
 
