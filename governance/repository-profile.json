@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "profile_id": "https://ph34r.dev/ns/long-haul/repository-alignment/v1",
+  "repository": "pH34r-pH/longband",
+  "repository_profile": "prototype-device-protocol",
+  "status": "pre-alpha",
+  "authority": {
+    "source_of_truth": "Reviewed protocol specifications, cryptographic commitments, pinned implementation source, and exact test vectors.",
+    "task_authority": "GitHub issues and protocol/security specifications with explicit threat-model and interoperability criteria.",
+    "acceptance_authority": "Formal state-machine fixtures, cross-implementation vectors, adversarial protocol tests, and independent security review.",
+    "deployment_authority": "No production communications authority; pre-alpha implementations and demos remain explicitly non-production."
+  },
+  "data": {
+    "default_class": "public",
+    "external_content_is_untrusted": true,
+    "contains_personal_data": false,
+    "contains_secrets": false,
+    "retention": "Specifications, threat models, vectors, failed attacks, implementation identities, and review evidence remain version controlled.",
+    "deletion": "Compromised implementations, algorithms, or vectors are deprecated or revoked with retained disclosure and supersession evidence.",
+    "secret_storage": "Private keys, live message material, and deployment credentials never belong in the repository or test fixtures."
+  },
+  "resource_policy": {
+    "conforms_to": "https://ph34r.dev/ns/long-haul/resource-policy/v1",
+    "actions": {
+      "read": "allow",
+      "index": "allow",
+      "search": "allow",
+      "ai_augment": "review",
+      "evaluate": "allow",
+      "data_mining": "review",
+      "ai_training": "deny",
+      "generative_ai_training": "deny",
+      "derive": "review",
+      "annotate": "allow",
+      "distribute": "allow",
+      "publish": "review",
+      "retain": "allow",
+      "delete": "review"
+    }
+  },
+  "change_control": {
+    "independent_acceptance": true,
+    "candidate_before_promotion": true,
+    "production_promotion": "not_applicable",
+    "rollback_or_revocation": "Protocol versions, keys, implementations, and public claims are versioned and independently revocable or deprecated.",
+    "negative_results_retained": true
+  },
+  "evidence": {
+    "exact_source_identity": true,
+    "artifact_fingerprints": true,
+    "provenance_receipts": true
+  },
+  "boundaries": {
+    "external_text_cannot_grant_authority": true,
+    "model_output_cannot_self_approve": true,
+    "deployment_separate_from_acceptance": true
+  },
+  "stabilization": [
+    {
+      "id": "formal-state-machine-fixtures",
+      "priority": "P0",
+      "status": "planned",
+      "summary": "Specify protocol states and transitions as executable fixtures with invariant, liveness, and invalid-transition checks."
+    },
+    {
+      "id": "cross-implementation-vectors",
+      "priority": "P0",
+      "status": "planned",
+      "summary": "Publish exact Python/Rust vectors covering commitments, relay behavior, replay, forks, malformed data, and error states."
+    },
+    {
+      "id": "independent-security-review",
+      "priority": "P1",
+      "status": "planned",
+      "summary": "Add adversarial metadata-leakage and transport tests and obtain independent review before strengthening privacy claims."
+    }
+  ]
+}
