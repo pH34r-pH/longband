@@ -72,8 +72,8 @@ jobs:
             prototype/relay/uv.lock
       - name: Check locked package environments
         run: |
-          uv sync --project prototype/poa --locked --extra test
-          uv sync --project prototype/relay --locked --extra test
+          uv sync --project prototype/poa --python "$(cat .python-version)" --locked --extra test
+          uv sync --project prototype/relay --python "$(cat .python-version)" --locked --extra test
       - name: Check package boundary tests
         run: uv run --project prototype/relay --no-sync python -m unittest discover -s scripts -p test_build_offline_package.py
       - name: Build and offline-test exact source package
