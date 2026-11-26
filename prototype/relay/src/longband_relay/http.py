@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from importlib.resources import files
 import base64
+import logging
 import os
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.routing import APIRoute
 from pydantic import BaseModel
 
 from longband_poa.admission import AdmissionService, Covenant
@@ -21,6 +24,25 @@ DATA = files("longband_relay").joinpath("data")
 COVENANT_RESOURCE = DATA.joinpath("voluntary-privacy-norm.md")
 DISCOVERY_RESOURCE = DATA.joinpath("longband.json")
 AGENT_RESOURCE = DATA.joinpath("agent.md")
+logger = logging.getLogger(__name__)
+
+
+class RedactedRoute(APIRoute):
+    def get_route_handler(self):
+        handle = super().get_route_handler()
+
+        async def redacted(request):
+            try:
+                return await handle(request)
+            except RequestValidationError:
+                return JSONResponse({"detail": "Invalid request"}, status_code=422)
+            except HTTPException:
+                raise
+            except Exception as exc:
+                logger.error("Longband route failed (%s)", type(exc).__name__)
+                return JSONResponse({"detail": "Longband operation failed"}, status_code=500)
+
+        return redacted
 
 
 def configured_relay():
@@ -41,6 +63,7 @@ admissions = AdmissionService(covenant)
 possession = EndpointPossession()
 service = AdmittedRelay(configured_relay(), admissions, possession)
 app = FastAPI(title="Longband Alpha", version="0.1.0-alpha")
+app.router.route_class = RedactedRoute
 
 class BeginPoA(BaseModel):
     endpoint_key: str
@@ -111,7 +134,7 @@ def discovery():
 @app.get("/topics")
 def relay_topics(endpoint_key: str):
     try:
-        with operation("longband.relay.topics", **{"longband.stage": "relay"}):
+        with operation("longband.relay.topics", "relay"):
             return [
             {
                 "topic": t.topic,
@@ -121,65 +144,70 @@ def relay_topics(endpoint_key: str):
             }
                 for t in service.topics(endpoint_key)
             ]
-    except (KeyError, PermissionError) as exc:
-        raise HTTPException(403, str(exc))
+    except (KeyError, PermissionError):
+        raise HTTPException(403, "Active admission required") from None
 
 @app.post("/poa/begin")
 def poa_begin(body: BeginPoA):
-    with operation("longband.poa.begin", **{"longband.stage": "poa"}):
-        return attempt_view(coordinator.begin(body.endpoint_key))
+    try:
+        with operation("longband.poa.begin", "poa"):
+            return attempt_view(coordinator.begin(body.endpoint_key))
+    except ValueError:
+        raise HTTPException(400, "PoA begin rejected") from None
 
 @app.post("/poa/{attempt_id}/step")
 def poa_step(attempt_id: str, body: StepPoA):
     try:
-        with operation("longband.poa.step", **{"longband.stage": "poa"}):
+        with operation("longband.poa.step", "poa"):
             attempt = coordinator.step(attempt_id, body.submitted)
         if attempt.status is AttemptStatus.PASSED:
             admissions.issue(attempt)
         return attempt_view(attempt)
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(400, str(exc))
+    except (KeyError, ValueError):
+        raise HTTPException(400, "PoA step rejected") from None
 
 @app.post("/admission/covenant")
 def get_covenant(body: EndpointRequest):
     try:
         c = admissions.covenant(body.endpoint_key)
         return {"version": c.version, "digest": c.digest, "text": c.text}
-    except KeyError as exc:
-        raise HTTPException(404, str(exc))
+    except KeyError:
+        raise HTTPException(404, "Covenant unavailable") from None
 
 @app.post("/admission/covenant/receipt")
 def covenant_receipt(body: Receipt):
     try:
-        with operation("longband.admission.covenant_receipt", **{"longband.stage": "admission"}):
+        with operation("longband.admission.covenant_receipt", "admission"):
             a = admissions.acknowledge_covenant(body.endpoint_key, body.digest)
         return {"endpoint_key": a.endpoint_key, "expires_ns": a.expires_ns, "covenant_received": a.covenant_received}
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(400, str(exc))
+    except (KeyError, ValueError):
+        raise HTTPException(400, "Covenant receipt rejected") from None
 
 @app.post("/relay/{topic}/challenge")
 def relay_challenge(topic: str, body: EndpointRequest):
     try:
-        with operation("longband.relay.possession_challenge", **{"longband.stage": "relay", "longband.topic": topic}):
+        with operation("longband.relay.possession_challenge", "relay"):
             c = service.begin_write(body.endpoint_key).possession
         return {"nonce_b64": base64.b64encode(c.nonce).decode(), "signing_bytes_b64": base64.b64encode(c.signing_bytes).decode(), "expires_ns": c.expires_ns}
-    except (KeyError, PermissionError) as exc:
-        raise HTTPException(403, str(exc))
+    except (KeyError, PermissionError):
+        raise HTTPException(403, "Active admission required") from None
 
 @app.post("/relay/{topic}")
 def relay_append(topic: str, body: AppendObject):
     try:
         payload = base64.b64decode(body.payload_b64, validate=True)
-        with operation("longband.relay.append", **{"longband.stage": "relay", "longband.topic": topic, "longband.payload_bytes": len(payload)}):
+        with operation("longband.relay.append", "relay", payload_bytes=len(payload)):
             obj = service.append(body.endpoint_key, body.public_key_b64, body.signature_b64, topic, payload, tuple(body.references))
         return {"sequence": obj.sequence, "topic": obj.topic, "references": obj.references, "received_ns": obj.received_ns}
-    except (ValueError, KeyError, PermissionError) as exc:
-        raise HTTPException(403, str(exc))
+    except (ValueError, KeyError, PermissionError):
+        raise HTTPException(403, "Relay write rejected") from None
 
 @app.get("/relay/{topic}")
 def relay_read(topic: str, endpoint_key: str, after: int = 0):
     try:
-        with operation("longband.relay.read", **{"longband.stage": "relay", "longband.topic": topic}):
+        with operation("longband.relay.read", "relay"):
             return [{"sequence": o.sequence, "payload_b64": base64.b64encode(o.payload).decode(), "references": o.references, "received_ns": o.received_ns} for o in service.read(endpoint_key, topic, after)]
-    except (KeyError, PermissionError) as exc:
-        raise HTTPException(403, str(exc))
+    except (KeyError, PermissionError):
+        raise HTTPException(403, "Active admission required") from None
+    except ValueError:
+        raise HTTPException(400, "Invalid relay cursor") from None

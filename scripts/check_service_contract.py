@@ -24,6 +24,8 @@ if "--host" not in command or command[command.index("--host") + 1:command.index(
     raise SystemExit("Longband service must bind only to loopback")
 if "--forwarded-allow-ips=127.0.0.1" not in command:
     raise SystemExit("Proxy trust must be limited to local Fleet ingress")
+if "--no-access-log" not in command:
+    raise SystemExit("Longband service must omit request path and query access logs")
 if service.get("User") != "longband" or service.get("Group") != "longband":
     raise SystemExit("Service must use the unprivileged Longband account")
 if service.get("NoNewPrivileges") != "true" or service.get("ProtectSystem") != "strict":
