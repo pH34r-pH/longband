@@ -36,9 +36,14 @@ def main():
     if output("git", "status", "--porcelain"):
         parser.error("protocol receipts require a clean checkout")
 
+    python_version = sys.version.split()[0]
+    pinned_python = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
+    if python_version != pinned_python and not python_version.startswith(f"{pinned_python}."):
+        parser.error(f"Python {python_version} does not match .python-version ({pinned_python})")
+
     raw = CORPUS.read_bytes()
     corpus = json.loads(raw)
-    versions = {"python": sys.version.split()[0]}
+    versions = {"python": python_version}
     if args.lane == "python":
         versions["uv"] = output("uv", "--version")
     else:

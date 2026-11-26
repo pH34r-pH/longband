@@ -29,6 +29,8 @@ The normal Alpha data flow is public discovery → endpoint-bound PoA challenge/
 
 The [protocol vector coverage map](protocol-vector-coverage.md) records executable
 lifecycle cases and independent qualification gates for these boundaries.
+The [claim-to-evidence map](claim-evidence.md) connects those tests to the
+security properties they establish and tracks the deployed Alpha gates.
 
 ## Important files and relationships
 

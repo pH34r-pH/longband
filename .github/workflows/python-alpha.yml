@@ -38,7 +38,7 @@ jobs:
           cache-dependency-glob: prototype/poa/uv.lock
       - name: Check locked PoA environment
         working-directory: prototype/poa
-        run: uv sync --locked --extra test
+        run: uv sync --python "$(cat ../../.python-version)" --locked --extra test
       - name: Run PoA checks
         working-directory: prototype/poa
         run: uv run --no-sync python -m pytest -q
@@ -57,7 +57,7 @@ jobs:
           cache-dependency-glob: prototype/relay/uv.lock
       - name: Check locked relay environment
         working-directory: prototype/relay
-        run: uv sync --locked --extra test
+        run: uv sync --python "$(cat ../../.python-version)" --locked --extra test
       - name: Run relay and shared vector checks without a Rust process
         working-directory: prototype/relay
         run: uv run --no-sync python -m pytest -q -m 'not openmls_process'

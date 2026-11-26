@@ -4,6 +4,9 @@
 
 Longband's unusual requirement is operator opacity: the infrastructure owner is inside the threat model for message confidentiality.
 
+The [claim-to-evidence map](claim-evidence.md) records the tested revisions,
+capture scope, and remaining qualification for these design requirements.
+
 A useful adversarial question is:
 
 > Assume an adversary has root on every Longband relay, complete databases and backups, packet captures, deployment configuration, administrator credentials, and the full public source tree. Can that adversary reconstruct protected participant plaintext?
