@@ -22,10 +22,15 @@ The fleet-owned deployment must terminate TLS and proxy only to loopback. It mus
 - restrict MCP Origin/Host values to the deployed Longband origin;
 - reject unexpected Origin values before requests reach Streamable HTTP;
 - avoid request/response body logging for PoA submissions and opaque relay payloads;
+- omit raw requests, including route parameters, query strings and headers, from ingress access logs;
 - not introduce a plaintext-debug mirror;
 - expose only intentionally public paths.
 
 A concrete proxy configuration belongs in private `long-haul-fleet` because deployed hostname/certificate/operations are infrastructure state.
+
+The packaged Uvicorn command disables raw access logs. See the
+[relay authorization and metadata contract](../docs/relay-metadata.md) for
+protocol fields, minimized diagnostics, and operator-visible metadata.
 
 ## Persistence
 
@@ -40,7 +45,6 @@ Both public workflows now run on **every main push**. Fleet requires completed s
 The `package` job builds and offline-installs a Python 3.12 x86_64 wheelhouse on a free public GitHub-hosted runner, in parallel with the `poa` and `relay` checks. On a main push, it publishes an Actions artifact named `longband-offline-package-<full SHA>-<run ID>-<attempt>` with a source tarball of the checked commit, the wheelhouse, the portable service unit, and a JSON receipt. The receipt records the exact source SHA, workflow run/attempt, per-wheel SHA-256 and size, and the bundle SHA-256 and size. It provides **no** Azure credentials or deployment capability. PRs test packaging but do not publish a deployable artifact.
 
 The Python manifests constrain dependency ranges rather than locking transitive versions. The source SHA alone cannot identify the resolved wheels: Fleet must authenticate the successful `package` job on that exact main push, download its artifact using repository-scoped Actions read access, verify the complete artifact, manifest and every digest, and promote **those same bytes** with a protected identity. Fleet #177/#179 own intake, revalidation, private deployment, probes and rollback; a public Actions artifact by itself is not a deployment approval. The service unit remains portable and has no production hostname/certificate.
-
 
 ## Fleet qualification and operations
 

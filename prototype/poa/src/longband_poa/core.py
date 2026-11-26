@@ -74,7 +74,10 @@ class Coordinator:
         if challenge is None:
             raise ValueError("attempt is not active")
 
-        accepted = secrets.compare_digest(str(submitted), str(challenge.expected))
+        accepted = secrets.compare_digest(
+            str(submitted).encode("utf-8", errors="surrogatepass"),
+            str(challenge.expected).encode("utf-8", errors="surrogatepass"),
+        )
         attempt.transitions.append(
             Transition(
                 family=challenge.family,

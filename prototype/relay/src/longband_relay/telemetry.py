@@ -25,15 +25,22 @@ tracer = trace.get_tracer("longband.relay")
 
 
 @contextmanager
-def operation(name: str, **attributes):
+def operation(name: str, stage: str, *, payload_bytes: int | None = None):
     if not _enabled:
         yield None
         return
-    safe = {k: v for k, v in attributes.items() if v is not None}
-    with tracer.start_as_current_span(name, attributes=safe) as span:
+    attributes: dict[str, str | int] = {"longband.stage": stage}
+    if payload_bytes is not None:
+        attributes["longband.payload_bytes"] = payload_bytes
+    with tracer.start_as_current_span(
+        name, attributes=attributes, record_exception=False, set_status_on_exception=False,
+    ) as span:
         try:
             yield span
         except Exception as exc:
             span.set_attribute("longband.result", "error")
             span.set_attribute("exception.type", type(exc).__name__)
+            span.set_status(trace.StatusCode.ERROR)
             raise
+        else:
+            span.set_attribute("longband.result", "ok")

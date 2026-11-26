@@ -38,7 +38,7 @@ def test_wrong_transition_fails_without_advancing():
     assert not attempt.transitions[0].accepted
 
 
-@pytest.mark.parametrize("submitted", ["wrong", "passed"])
+@pytest.mark.parametrize("submitted", ["wrong", "fixture \N{SNOWMAN}", "passed"])
 def test_inactive_attempt_cannot_be_advanced(submitted):
     coordinator = Coordinator([StateIntegration()])
     attempt = coordinator.begin("tripkey:test-endpoint")

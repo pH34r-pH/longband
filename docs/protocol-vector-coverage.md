@@ -31,5 +31,8 @@ vectors offline and then runs the independent process fixture and two-phase
 reload. The two vector receipts carry case IDs, versions, and fingerprints.
 Endpoint state and protected message contents remain in local test storage.
 
+The [relay authorization and metadata contract](relay-metadata.md) lists the HTTP
+and MCP parity cases and records the required diagnostic fields.
+
 [#78]: https://github.com/pH34r-pH/longband/issues/78
 [#12]: https://github.com/pH34r-pH/longband/issues/12

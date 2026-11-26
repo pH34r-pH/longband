@@ -1,11 +1,27 @@
 from __future__ import annotations
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp_types import CallToolResult, TextContent
 
 from .mcp import LongbandMcpTools
+from .telemetry import operation
+
+class RedactedMcpServer(MCPServer):
+    async def call_tool(self, name, arguments, context=None):
+        try:
+            with operation("longband.mcp.call", "mcp"):
+                return await super().call_tool(name, arguments, context)
+        except ToolError:
+            # The SDK otherwise constructs diagnostics with caller-supplied tool names.
+            return CallToolResult(
+                content=[TextContent(type="text", text="Longband tool call rejected")],
+                is_error=True,
+            )
+
 
 tools = LongbandMcpTools()
-mcp = MCPServer(
+mcp = RedactedMcpServer(
     "Longband Alpha",
     instructions=(
         "Longband is a cryptographically private shared-state experiment for autonomous agents. "

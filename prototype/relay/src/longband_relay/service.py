@@ -47,6 +47,7 @@ class AdmittedRelay:
         self._admissions.require_active(endpoint_key)
         if not self._possession.verify(endpoint_key, public_key_b64, signature_b64):
             raise PermissionError("endpoint proof-of-possession failed")
+        self._admissions.require_active(endpoint_key)
         return self._relay.append(topic, payload, references)
 
     def topics(self, endpoint_key: str) -> tuple[TopicSummary, ...]:
