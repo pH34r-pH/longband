@@ -5,8 +5,14 @@ on:
     paths:
       - '.fleet/**'
       - 'rust-toolchain.toml'
+      - '.python-version'
       - '.github/workflows/requirements.yml'
+      - 'discovery/**'
+      - 'protocol/**'
       - 'prototype/openmls/**'
+      - 'prototype/poa/**'
+      - 'prototype/relay/**'
+      - 'scripts/protocol_vector_receipt.py'
       - '.github/workflows/openmls-prototype.yml'
   push:
     branches: [main]
@@ -30,12 +36,15 @@ jobs:
           cargo --version
           cc --version
           cargo metadata --locked --format-version 1 --no-deps --manifest-path Cargo.toml >/dev/null
-      - run: cargo test --locked
+      - name: Fetch pinned endpoint dependencies
+        run: cargo fetch --locked
+      - name: Run OpenMLS contract and protocol vectors offline
+        run: cargo test --locked --offline
         working-directory: prototype/openmls
       - name: Exercise independent Alice/Bob endpoint processes
         run: |
           set -euo pipefail
-          cargo build --locked --quiet
+          cargo build --locked --offline --quiet
           python3 reference_vessel_qualify.py \
             --binary target/debug/longband-openmls-prototype \
             --source-sha "$GITHUB_SHA" \
@@ -51,10 +60,21 @@ jobs:
       - name: Exercise two-phase endpoint fixture
         run: |
           set -euo pipefail
-          cargo run --locked --quiet -- emit-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex"
+          cargo run --locked --offline --quiet -- emit-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex"
           cp "$RUNNER_TEMP/openmls-message.hex" "$RUNNER_TEMP/openmls-returned.hex"
-          cargo run --locked --quiet -- consume-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-returned.hex"
+          cargo run --locked --offline --quiet -- consume-two-phase "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-returned.hex"
           rm -f "$RUNNER_TEMP/openmls-endpoint-state.txt" "$RUNNER_TEMP/openmls-message.hex" "$RUNNER_TEMP/openmls-returned.hex"
+      - name: Record the OpenMLS protocol vector receipt
+        run: >
+          python3 ../../scripts/protocol_vector_receipt.py
+          --lane openmls --source-sha "$GITHUB_SHA"
+          --output "$RUNNER_TEMP/longband-protocol-openmls.json"
+      - name: Upload the OpenMLS protocol vector receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: longband-protocol-openmls-${{ github.sha }}
+          path: ${{ runner.temp }}/longband-protocol-openmls.json
+          if-no-files-found: error
       - name: Build portable Alpha endpoint fixture
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |

@@ -7,12 +7,16 @@ on:
       - '.python-version'
       - 'rust-toolchain.toml'
       - '.github/workflows/requirements.yml'
+      - 'discovery/**'
+      - 'protocol/**'
       - 'prototype/poa/**'
       - 'prototype/relay/**'
+      - 'prototype/openmls/**'
       - 'deploy/longband-alpha.service'
       - 'scripts/check_service_contract.py'
       - 'scripts/build_offline_package.py'
       - 'scripts/test_build_offline_package.py'
+      - 'scripts/protocol_vector_receipt.py'
       - '.github/workflows/python-alpha.yml'
   push:
     branches: [main]
@@ -54,9 +58,26 @@ jobs:
       - name: Check locked relay environment
         working-directory: prototype/relay
         run: uv sync --locked --extra test
-      - name: Run relay checks
+      - name: Run relay and shared vector checks without a Rust process
         working-directory: prototype/relay
-        run: uv run --no-sync python -m pytest -q
+        run: uv run --no-sync python -m pytest -q -m 'not openmls_process'
+      - name: Record the Python protocol vector receipt
+        run: >
+          uv run --no-sync python ../../scripts/protocol_vector_receipt.py
+          --lane python --source-sha "$GITHUB_SHA"
+          --output "$RUNNER_TEMP/longband-protocol-python.json"
+      - name: Upload the Python protocol vector receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: longband-protocol-python-${{ github.sha }}
+          path: ${{ runner.temp }}/longband-protocol-python.json
+          if-no-files-found: error
+      - name: Fetch pinned OpenMLS dependencies
+        run: cargo fetch --locked --manifest-path ../openmls/Cargo.toml
+      - name: Run the relay and OpenMLS HTTP boundary check
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: uv run --no-sync python -m pytest -q -m openmls_process
       - name: Validate deployable service boundary
         run: uv run --no-sync python ../../scripts/check_service_contract.py
 
