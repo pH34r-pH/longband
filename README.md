@@ -94,7 +94,9 @@ CI also exercises the relay/OpenMLS integration boundary and offline packaging c
 
 ## Status
 
-**Pre-alpha.** Protocol boundaries and executable slices exist; a complete production service has not yet been security-audited. Security and privacy claims apply only where an exact implementation and test/evidence scope establishes them.
+**Pre-alpha.** The [claim-to-evidence map](docs/claim-evidence.md) links the
+tested PoA, relay and OpenMLS properties to exact revisions and records the
+remaining deployed qualification and independent review.
 
 ## Contributing, security, citation
 
