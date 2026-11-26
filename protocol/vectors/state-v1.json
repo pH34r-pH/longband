@@ -1,0 +1,92 @@
+{
+  "corpus_version": 1,
+  "protocol": {"longband": "0.1.0-alpha", "mls": "1.0"},
+  "baseline_source_revision": "e3c540bbd557834e3304784ac1ff94c397ebbb98",
+  "opaque_payload_hex": "00ff106c62007f",
+  "cases": [
+    {
+      "id": "ordered-poa",
+      "owner": "python",
+      "start": "active with two challenges",
+      "expect": ["active", "active", "passed"]
+    },
+    {
+      "id": "out-of-order-poa",
+      "owner": "python",
+      "start": "awaiting the first of two distinct answers",
+      "expect": ["failed", "terminal", "index:0"]
+    },
+    {
+      "id": "receipt-lifecycle",
+      "owner": "python",
+      "start": "passed PoA has issued an admission pending receipt",
+      "expect": ["receipt-required", "digest-rejected", "active", "expired"]
+    },
+    {
+      "id": "write-lifecycle",
+      "owner": "python",
+      "start": "admitted endpoint with fresh write proof",
+      "expect": ["appended", "proof-spent", "one-object"]
+    },
+    {
+      "id": "write-expired",
+      "owner": "python",
+      "start": "write proof reaches its deadline during an active admission",
+      "expect": ["proof-rejected", "zero-objects"]
+    },
+    {
+      "id": "write-reference",
+      "owner": "python",
+      "start": "admitted endpoint writes with a reference to a missing object",
+      "expect": ["reference-rejected", "proof-spent", "zero-objects"]
+    },
+    {
+      "id": "restart",
+      "owner": "python",
+      "start": "SQLite relay contains a ciphertext object and PoA state is process-local",
+      "expect": ["attempt-unknown", "admission-unknown", "ciphertext-retained"]
+    },
+    {
+      "id": "opaque-roundtrip",
+      "owner": "shared",
+      "start": "public synthetic opaque bytes submitted to the fixture relay",
+      "expect": ["exact-bytes"]
+    },
+    {
+      "id": "mls-wire",
+      "owner": "openmls",
+      "start": "Bob has joined Alice's group at the same epoch",
+      "expect": ["malformed-rejected", "version-rejected", "opened", "duplicate-rejected"]
+    },
+    {
+      "id": "mls-wrong-group",
+      "owner": "openmls",
+      "start": "Bob receives an application object from a different group",
+      "expect": ["group-rejected", "epoch-unchanged", "opened"]
+    },
+    {
+      "id": "mls-delayed",
+      "owner": "openmls",
+      "start": "two valid messages from the same epoch arrive in reverse order",
+      "expect": ["newer-opened", "delayed-opened", "duplicate-rejected"]
+    },
+    {
+      "id": "mls-epoch-order",
+      "owner": "openmls",
+      "start": "Alice commits an update before Bob receives it",
+      "expect": ["future-rejected", "commit-merged", "stale-rejected", "opened"]
+    },
+    {
+      "id": "mls-commit-conflict",
+      "owner": "openmls",
+      "start": "Alice and Bob each prepare an update at the same epoch",
+      "expect": ["second-local-commit-rejected", "local-commit-cleared", "peer-commit-merged", "conflict-rejected", "opened"]
+    },
+    {
+      "id": "mls-member-removed",
+      "owner": "openmls",
+      "start": "Alice removes Bob and both endpoints process the commit",
+      "expect": ["inactive", "inactive-send-rejected", "inactive-receive-rejected"]
+    }
+  ]
+}

@@ -16,6 +16,7 @@ mutation = ["irradiate==0.4.3"]
 pythonpath = ["src", "../poa/src"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["openmls_process: invokes the pinned OpenMLS endpoint fixture"]
 
 [tool.setuptools.package-data]
 longband_relay = ["data/*.md", "data/*.json"]

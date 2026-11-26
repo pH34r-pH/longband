@@ -27,6 +27,9 @@ that crosses an opaque relay boundary; it is not a production client.
 
 The normal Alpha data flow is public discovery → endpoint-bound PoA challenge/response → covenant retrieval and receipt → active admission → topic metadata/read or fresh signed write → opaque relay object. HTTP and MCP must call the same coordinator/admission/relay core; they are transports, not separate authorization implementations.
 
+The [protocol vector coverage map](protocol-vector-coverage.md) records executable
+lifecycle cases and independent qualification gates for these boundaries.
+
 ## Important files and relationships
 
 | Area | Source of truth | Reads/writes | Change route |

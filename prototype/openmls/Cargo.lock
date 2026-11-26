@@ -1118,6 +1118,7 @@ dependencies = [
  "openmls_rust_crypto",
  "openmls_traits",
  "proptest",
+ "serde_json",
  "tempfile",
  "tls_codec",
 ]
