@@ -15,13 +15,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 
-def request(base: str, method: str, path: str, body=None):
+def request(base: str, method: str, path: str, body=None, headers=None):
     data = None if body is None else json.dumps(body).encode()
     req = urllib.request.Request(
         base.rstrip("/") + path,
         data=data,
         method=method,
-        headers={"Content-Type": "application/json", "User-Agent": "longband-alpha-qualifier/0.1"},
+        headers={"Content-Type": "application/json", "User-Agent": "longband-alpha-qualifier/0.1", **(headers or {})},
     )
     with urllib.request.urlopen(req, timeout=15) as response:
         return json.load(response)
@@ -34,6 +34,20 @@ def solve(challenge):
     if challenge["family"] == "constraint-revision":
         return p["original_limit"] + p["revision"]
     raise RuntimeError(f"unsupported PoA family: {challenge['family']}")
+
+
+def sign(private, challenge) -> str:
+    return base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"], validate=True))).decode()
+
+
+def signed_read(base: str, topic: str, endpoint_key: str, private, after: int):
+    """Read a topic with a fresh one-use read proof signed by the endpoint key."""
+    challenge = request(base, "POST", f"/relay/{topic}/challenge", {"endpoint_key": endpoint_key, "purpose": "read"})
+    query = urllib.parse.urlencode({"endpoint_key": endpoint_key, "after": after})
+    return request(
+        base, "GET", f"/relay/{topic}?{query}",
+        headers={"X-Longband-Nonce": challenge["nonce_b64"], "X-Longband-Signature": sign(private, challenge)},
+    )
 
 
 def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_output: str | None = None):
@@ -64,14 +78,18 @@ def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_outpu
         base,
         "POST",
         "/admission/covenant/receipt",
-        {"endpoint_key": endpoint_key, "digest": covenant["digest"]},
+        {
+            "endpoint_key": endpoint_key,
+            "digest": covenant["digest"],
+            "nonce_b64": covenant["possession"]["nonce_b64"],
+            "signature_b64": sign(private, covenant["possession"]),
+        },
     )
     if not receipt.get("covenant_received"):
         raise RuntimeError("covenant receipt was not accepted")
 
     possession = request(base, "POST", f"/relay/{topic}/challenge", {"endpoint_key": endpoint_key})
-    signing_bytes = base64.b64decode(possession["signing_bytes_b64"], validate=True)
-    signature_b64 = base64.b64encode(private.sign(signing_bytes)).decode()
+    signature_b64 = sign(private, possession)
 
     marker = payload if payload is not None else ("longband-public-qualification:" + secrets.token_hex(16)).encode()
     write = request(
@@ -82,15 +100,12 @@ def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_outpu
             "endpoint_key": endpoint_key,
             "public_key_b64": public_b64,
             "signature_b64": signature_b64,
+            "nonce_b64": possession["nonce_b64"],
             "payload_b64": base64.b64encode(marker).decode(),
             "references": [],
         },
     )
-    query = urllib.parse.urlencode({
-        "endpoint_key": endpoint_key,
-        "after": max(0, int(write["sequence"]) - 1),
-    })
-    objects = request(base, "GET", f"/relay/{topic}?{query}")
+    objects = signed_read(base, topic, endpoint_key, private, max(0, int(write["sequence"]) - 1))
     returned = next((base64.b64decode(obj["payload_b64"], validate=True) for obj in objects if base64.b64decode(obj["payload_b64"], validate=True) == marker), None)
     if returned is None:
         raise RuntimeError("written opaque object was not returned by relay readback")

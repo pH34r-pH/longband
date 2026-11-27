@@ -30,13 +30,23 @@ def admitted_service():
     return private, endpoint, public, AdmittedRelay(OpaqueRelay(), admissions, EndpointPossession())
 
 
+def read_proof(service, private, endpoint):
+    challenge = service.begin_read(endpoint).possession
+    return {
+        "nonce": challenge.nonce,
+        "signature_b64": base64.b64encode(private.sign(challenge.signing_bytes)).decode(),
+    }
+
+
 def test_admitted_endpoint_with_fresh_possession_can_append_ciphertext():
     private, endpoint, public, service = admitted_service()
     challenge = service.begin_write(endpoint)
     signature = base64.b64encode(private.sign(challenge.possession.signing_bytes)).decode()
-    stored = service.append(endpoint, public, signature, "mls:test", b"opaque-mls-ciphertext")
-    assert service.read(endpoint, "mls:test") == (stored,)
-    assert service.topics(endpoint)[0].topic == "mls:test"
+    stored = service.append(
+        endpoint, public, signature, "mls:test", b"opaque-mls-ciphertext", nonce=challenge.possession.nonce,
+    )
+    assert service.read(endpoint, "mls:test", **read_proof(service, private, endpoint)) == (stored,)
+    assert service.topics(endpoint, **read_proof(service, private, endpoint))[0].topic == "mls:test"
 
 
 def test_copied_endpoint_identifier_cannot_write_without_private_key():
@@ -45,7 +55,7 @@ def test_copied_endpoint_identifier_cannot_write_without_private_key():
     challenge = service.begin_write(endpoint)
     signature = base64.b64encode(attacker.sign(challenge.possession.signing_bytes)).decode()
     with pytest.raises(PermissionError):
-        service.append(endpoint, public, signature, "mls:test", b"ciphertext")
+        service.append(endpoint, public, signature, "mls:test", b"ciphertext", nonce=challenge.possession.nonce)
 
 
 def test_covenant_receipt_is_required_before_write_challenge():

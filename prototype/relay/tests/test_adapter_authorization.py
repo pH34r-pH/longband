@@ -6,6 +6,7 @@ from contextlib import closing
 from dataclasses import dataclass
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 from mcp import Client
 from opentelemetry.sdk.trace import TracerProvider
@@ -18,7 +19,7 @@ from longband_relay import mcp as mcp_adapter
 from longband_relay.mcp_server import mcp
 from longband_relay.sqlite_store import SqliteRelay
 
-from test_protocol_vectors import NS_PER_SECOND, OPAQUE, TOPIC, ProtocolFixture
+from test_protocol_vectors import NS_PER_SECOND, OPAQUE, TOPIC, ProtocolFixture, b64
 
 
 @dataclass(frozen=True)
@@ -42,11 +43,21 @@ def after_deadline(fixture, nanoseconds):
     return {"endpoint_key": fixture.endpoint}
 
 
+def read_after_deadline(fixture, nanoseconds):
+    """A read whose signed challenge is issued while the admission is still active."""
+    arguments = after_deadline(fixture, nanoseconds)
+    if nanoseconds < 0:
+        proof = fixture.read_proof()
+        arguments |= {"nonce_b64": b64(proof["nonce"]), "signature_b64": proof["signature_b64"]}
+    return arguments
+
+
 def proof_arguments(fixture, signature):
     return {
         "endpoint_key": fixture.endpoint,
         "public_key_b64": fixture.public,
         "signature_b64": signature,
+        "nonce_b64": b64(getattr(signature, "nonce", b"")),
         "payload_b64": base64.b64encode(OPAQUE).decode("ascii"),
         "topic": TOPIC,
     }
@@ -101,17 +112,46 @@ def pending_receipt(fixture):
 def covenant_receipt(fixture, *, current):
     fixture.issue()
     digest = fixture.covenant.digest if current else Covenant("previous-fixture", "previous text").digest
-    return {"endpoint_key": fixture.endpoint, "digest": digest}
+    arguments = {"endpoint_key": fixture.endpoint, "digest": digest}
+    if current:
+        proof = fixture.activation_proof()
+        arguments |= {"nonce_b64": b64(proof["nonce"]), "signature_b64": proof["signature_b64"]}
+    return arguments
+
+
+def unproven_receipt(fixture, *, mode):
+    """The current covenant digest, acknowledged without a valid key-possession proof."""
+    fixture.issue()
+    arguments = {"endpoint_key": fixture.endpoint, "digest": fixture.covenant.digest}
+    if mode == "wrong-key":
+        impostor = Ed25519PrivateKey.generate()
+        challenge = fixture.service.begin_activation(fixture.endpoint).possession
+        arguments |= {
+            "nonce_b64": b64(challenge.nonce),
+            "signature_b64": b64(impostor.sign(challenge.signing_bytes)),
+        }
+    elif mode == "read-proof-reused":
+        fixture.admissions.acknowledge_covenant(fixture.endpoint, fixture.covenant.digest)
+        proof = fixture.read_proof()
+        fixture.issue()
+        arguments |= {"nonce_b64": b64(proof["nonce"]), "signature_b64": proof["signature_b64"]}
+    return arguments
 
 
 READ_CASES = [
     Scenario("unknown-endpoint", "relay_topics", lambda _f: {"endpoint_key": "unadmitted-fixture"}, 403),
     Scenario("receipt-required", "relay_topics", pending_receipt, 403),
-    Scenario("before-admission-expiry", "relay_read", lambda f: after_deadline(f, -1), 200),
-    Scenario("at-admission-expiry", "relay_read", lambda f: after_deadline(f, 0), 403),
-    Scenario("after-admission-expiry", "relay_read", lambda f: after_deadline(f, 1), 403),
+    Scenario("before-admission-expiry", "relay_read", lambda f: read_after_deadline(f, -1), 200),
+    Scenario("at-admission-expiry", "relay_read", lambda f: read_after_deadline(f, 0), 403),
+    Scenario("after-admission-expiry", "relay_read", lambda f: read_after_deadline(f, 1), 403),
+    Scenario("topics-before-admission-expiry", "relay_topics", lambda f: read_after_deadline(f, -1), 200),
+    Scenario("topics-without-proof", "relay_topics", lambda f: after_deadline(f, -1), 403),
+    Scenario("read-without-proof", "relay_read", lambda f: after_deadline(f, -1), 403),
     Scenario("stale-covenant", "covenant_receipt", lambda f: covenant_receipt(f, current=False), 400),
     Scenario("current-covenant", "covenant_receipt", lambda f: covenant_receipt(f, current=True), 200),
+    Scenario("receipt-without-proof", "covenant_receipt", lambda f: unproven_receipt(f, mode="none"), 400),
+    Scenario("receipt-wrong-key", "covenant_receipt", lambda f: unproven_receipt(f, mode="wrong-key"), 400),
+    Scenario("receipt-with-read-proof", "covenant_receipt", lambda f: unproven_receipt(f, mode="read-proof-reused"), 400),
     Scenario("challenge-before-receipt", "relay_write_challenge", pending_receipt, 403),
     Scenario("challenge-before-expiry", "relay_write_challenge", lambda f: after_deadline(f, -1), 200),
 ]
@@ -125,7 +165,7 @@ WRITE_CASES = [
         ("endpoint-mismatch", "wrong-endpoint", 403, 0),
         ("key-mismatch", "wrong-key", 403, 0),
         ("challenge-missing", "missing", 403, 0),
-        ("challenge-replaced", "replaced", 403, 0),
+        ("concurrent-challenges", "replaced", 200, 1),
         ("challenge-replayed", "replayed", 403, 0),
         ("malformed-payload", "bad-payload", 403, 0),
         ("missing-payload", "missing-payload", 422, 0),
@@ -149,21 +189,28 @@ HTTP_ERRORS = {
 def invoke_http(client, method, arguments):
     verb, path = HTTP_ROUTES[method]
     if verb == "GET":
-        return client.get(path, params=arguments)
+        proof = {"nonce_b64": "X-Longband-Nonce", "signature_b64": "X-Longband-Signature"}
+        headers = {header: arguments[name] for name, header in proof.items() if name in arguments}
+        params = {name: value for name, value in arguments.items() if name not in proof}
+        return client.get(path, params=params, headers=headers)
     body = {name: value for name, value in arguments.items() if name != "topic"}
     return client.post(path, json=body)
 
 
 def invoke_core(fixture, method, arguments):
     endpoint = arguments["endpoint_key"]
+    nonce = base64.b64decode(arguments.get("nonce_b64", ""), validate=True)
+    signature = arguments.get("signature_b64", "")
     actions = {
-        "relay_topics": lambda: fixture.service.topics(endpoint),
-        "relay_read": lambda: fixture.service.read(endpoint, TOPIC),
+        "relay_topics": lambda: fixture.service.topics(endpoint, nonce=nonce, signature_b64=signature),
+        "relay_read": lambda: fixture.service.read(endpoint, TOPIC, nonce=nonce, signature_b64=signature),
         "relay_write_challenge": lambda: fixture.service.begin_write(endpoint),
-        "covenant_receipt": lambda: fixture.admissions.acknowledge_covenant(endpoint, arguments["digest"]),
+        "covenant_receipt": lambda: fixture.service.activate(
+            endpoint, arguments["digest"], nonce=nonce, signature_b64=signature,
+        ),
         "relay_append": lambda: fixture.service.append(
-            endpoint, arguments["public_key_b64"], arguments["signature_b64"], TOPIC,
-            base64.b64decode(arguments["payload_b64"], validate=True),
+            endpoint, arguments["public_key_b64"], signature, TOPIC,
+            base64.b64decode(arguments["payload_b64"], validate=True), nonce=nonce,
         ),
     }
     try:

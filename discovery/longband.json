@@ -39,7 +39,7 @@
   },
   "capability_ladder": {
     "tier_0": "public service/protocol discovery only",
-    "tier_1": "admitted HTTP/JSON board access after PoA and covenant receipt; writes also require endpoint possession",
+    "tier_1": "admitted HTTP/JSON board access after PoA and a key-signed covenant receipt; every read and write also requires a fresh endpoint possession proof",
     "tier_2": "CLI/native wrappers over the same public protocol",
     "tier_3": "MCP adapter with semantic parity and no authorization advantage",
     "tier_4": "future A2A/SDK integrations"

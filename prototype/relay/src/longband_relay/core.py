@@ -3,6 +3,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 import time
 
+MAX_TOPIC_CHARS = 256
+MAX_PAYLOAD_BYTES = 262_144
+MAX_REFERENCES = 64
+
+
+def validate_append(topic: str, payload: bytes, references: tuple[int, ...]) -> None:
+    if not topic:
+        raise ValueError("topic is required")
+    if len(topic) > MAX_TOPIC_CHARS:
+        raise ValueError("topic is too long")
+    if not payload:
+        raise ValueError("opaque payload is required")
+    if len(payload) > MAX_PAYLOAD_BYTES:
+        raise ValueError("opaque payload is too large")
+    if len(references) > MAX_REFERENCES:
+        raise ValueError("too many references")
+
+
 @dataclass(frozen=True)
 class TopicSummary:
     topic: str
@@ -23,12 +41,8 @@ class OpaqueRelay:
         self._objects: list[RelayObject] = []
 
     def append(self, topic: str, payload: bytes, references: tuple[int, ...] = ()) -> RelayObject:
-        if not topic:
-            raise ValueError("topic is required")
-        if not payload:
-            raise ValueError("opaque payload is required")
-        known = {obj.sequence for obj in self._objects}
-        if any(reference not in known for reference in references):
+        validate_append(topic, payload, references)
+        if any(reference < 1 or reference > len(self._objects) for reference in references):
             raise ValueError("reference must identify an existing relay object")
         obj = RelayObject(len(self._objects) + 1, topic, bytes(payload), tuple(references), time.time_ns())
         self._objects.append(obj)

@@ -5,7 +5,7 @@ import threading
 import time
 from pathlib import Path
 
-from .core import RelayObject, TopicSummary
+from .core import RelayObject, TopicSummary, validate_append
 
 
 class SqliteRelay:
@@ -41,10 +41,7 @@ class SqliteRelay:
         self._db.commit()
 
     def append(self, topic: str, payload: bytes, references: tuple[int, ...] = ()) -> RelayObject:
-        if not topic:
-            raise ValueError("topic is required")
-        if not payload:
-            raise ValueError("opaque payload is required")
+        validate_append(topic, payload, references)
         with self._lock:
             for reference in references:
                 if self._db.execute("SELECT 1 FROM relay_objects WHERE sequence = ?", (reference,)).fetchone() is None:

@@ -28,8 +28,17 @@ def admitted_tools():
         state = tools.poa_step(state["attempt_id"], solve(state["challenge"]))
     assert state["status"] == "passed"
     covenant = tools.covenant(endpoint)
-    tools.covenant_receipt(endpoint, covenant["digest"])
+    tools.covenant_receipt(endpoint, covenant["digest"], **sign(private, covenant["possession"]))
     return tools, private, public, endpoint
+
+
+def sign(private, challenge):
+    signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
+    return {"nonce_b64": challenge["nonce_b64"], "signature_b64": signature}
+
+
+def read_proof(tools, private, endpoint):
+    return sign(private, tools.relay_write_challenge(endpoint, "read"))
 
 
 def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
@@ -38,9 +47,9 @@ def test_mcp_tool_contract_reaches_same_admitted_relay_boundary():
     signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
 
     payload = base64.b64encode(b"opaque-mcp-object").decode()
-    tools.relay_append(endpoint, public, signature, "mcp:test", payload)
-    assert tools.relay_read(endpoint, "mcp:test")[0]["payload_b64"] == payload
-    topics = tools.relay_topics(endpoint)
+    tools.relay_append(endpoint, public, signature, "mcp:test", payload, nonce_b64=challenge["nonce_b64"])
+    assert tools.relay_read(endpoint, "mcp:test", **read_proof(tools, private, endpoint))[0]["payload_b64"] == payload
+    topics = tools.relay_topics(endpoint, **read_proof(tools, private, endpoint))
     assert any(t["topic"] == "mcp:test" and t["object_count"] >= 1 for t in topics)
 
 def test_mcp_topics_and_reads_require_admission():
@@ -58,4 +67,7 @@ def test_mcp_rejects_non_base64_payload_before_append():
     signature = base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
 
     with pytest.raises(binascii.Error):
-        tools.relay_append(endpoint, public, signature, "mcp:test", base64.b64encode(b"opaque-mcp-object").decode() + "!")
+        tools.relay_append(
+            endpoint, public, signature, "mcp:test", base64.b64encode(b"opaque-mcp-object").decode() + "!",
+            nonce_b64=challenge["nonce_b64"],
+        )

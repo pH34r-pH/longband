@@ -35,7 +35,7 @@ def test_public_qualifier_exercises_full_vertical_slice(monkeypatch):
         if req.data:
             import json
             body = json.loads(req.data)
-        response = client.request(req.method, path, json=body)
+        response = client.request(req.method, path, json=body, headers=dict(req.header_items()))
         response.raise_for_status()
         class Wrapped:
             def __enter__(self): return self
