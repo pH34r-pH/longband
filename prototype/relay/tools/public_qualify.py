@@ -40,6 +40,16 @@ def sign(private, challenge) -> str:
     return base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"], validate=True))).decode()
 
 
+def signed_read(base: str, topic: str, endpoint_key: str, private, after: int):
+    """Read a topic with a fresh one-use read proof signed by the endpoint key."""
+    challenge = request(base, "POST", f"/relay/{topic}/challenge", {"endpoint_key": endpoint_key, "purpose": "read"})
+    query = urllib.parse.urlencode({"endpoint_key": endpoint_key, "after": after})
+    return request(
+        base, "GET", f"/relay/{topic}?{query}",
+        headers={"X-Longband-Nonce": challenge["nonce_b64"], "X-Longband-Signature": sign(private, challenge)},
+    )
+
+
 def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_output: str | None = None):
     discovery = request(base, "GET", "/.well-known/longband")
     if discovery.get("name") != "Longband":
@@ -95,17 +105,7 @@ def qualify(base: str, topic: str, payload: bytes | None = None, roundtrip_outpu
             "references": [],
         },
     )
-    query = urllib.parse.urlencode({
-        "endpoint_key": endpoint_key,
-        "after": max(0, int(write["sequence"]) - 1),
-    })
-    read_challenge = request(
-        base, "POST", f"/relay/{topic}/challenge", {"endpoint_key": endpoint_key, "purpose": "read"},
-    )
-    objects = request(
-        base, "GET", f"/relay/{topic}?{query}",
-        headers={"X-Longband-Nonce": read_challenge["nonce_b64"], "X-Longband-Signature": sign(private, read_challenge)},
-    )
+    objects = signed_read(base, topic, endpoint_key, private, max(0, int(write["sequence"]) - 1))
     returned = next((base64.b64decode(obj["payload_b64"], validate=True) for obj in objects if base64.b64decode(obj["payload_b64"], validate=True) == marker), None)
     if returned is None:
         raise RuntimeError("written opaque object was not returned by relay readback")

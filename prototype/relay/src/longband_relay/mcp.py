@@ -57,7 +57,8 @@ class LongbandMcpTools:
         begin = service.begin_read if purpose == "read" else service.begin_write
         return _challenge(begin(endpoint_key).possession)
 
-    def relay_append(self, endpoint_key: str, public_key_b64: str, signature_b64: str, topic: str, payload_b64: str, references: list[int] | None = None, nonce_b64: str = "") -> dict:
+    @staticmethod
+    def relay_append(endpoint_key: str, public_key_b64: str, signature_b64: str, topic: str, payload_b64: str, references: list[int] | None = None, nonce_b64: str = "") -> dict:
         obj = service.append(
             endpoint_key,
             public_key_b64,
