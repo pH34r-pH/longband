@@ -14,6 +14,10 @@ def endpoint():
     public = base64.b64encode(raw).decode()
     return private, "ed25519:" + public, public
 
+def sign(private, challenge):
+    return base64.b64encode(private.sign(base64.b64decode(challenge["signing_bytes_b64"]))).decode()
+
+
 def solve(challenge):
     p = challenge["prompt"]
     if challenge["family"] == "state-integration":
@@ -48,18 +52,26 @@ def test_full_http_alpha_control_plane_vertical_slice(tmp_path):
     covenant = client.post("/admission/covenant", json={"endpoint_key": endpoint_key})
     assert covenant.status_code == 200
     c = covenant.json()
-    receipt = client.post("/admission/covenant/receipt", json={"endpoint_key": endpoint_key, "digest": c["digest"]})
+    receipt = client.post("/admission/covenant/receipt", json={
+        "endpoint_key": endpoint_key, "digest": c["digest"],
+        "nonce_b64": c["possession"]["nonce_b64"], "signature_b64": sign(private, c["possession"]),
+    })
     assert receipt.status_code == 200 and receipt.json()["covenant_received"]
     challenge = client.post("/relay/alpha/challenge", json={"endpoint_key": endpoint_key})
     assert challenge.status_code == 200
-    signature = base64.b64encode(private.sign(base64.b64decode(challenge.json()["signing_bytes_b64"]))).decode()
+    signature = sign(private, challenge.json())
     opaque, protected_plaintext = openmls_message(tmp_path)
-    write = client.post("/relay/alpha", json={"endpoint_key": endpoint_key, "public_key_b64": public, "signature_b64": signature, "payload_b64": base64.b64encode(opaque).decode(), "references": []})
+    write = client.post("/relay/alpha", json={"endpoint_key": endpoint_key, "public_key_b64": public, "signature_b64": signature, "nonce_b64": challenge.json()["nonce_b64"], "payload_b64": base64.b64encode(opaque).decode(), "references": []})
     assert write.status_code == 200
-    topics = client.get("/topics", params={"endpoint_key": endpoint_key})
+
+    def read_headers():
+        read = client.post("/relay/alpha/challenge", json={"endpoint_key": endpoint_key, "purpose": "read"}).json()
+        return {"X-Longband-Nonce": read["nonce_b64"], "X-Longband-Signature": sign(private, read)}
+
+    topics = client.get("/topics", params={"endpoint_key": endpoint_key}, headers=read_headers())
     assert topics.status_code == 200
     assert any(item["topic"] == "alpha" for item in topics.json())
-    objects = client.get("/relay/alpha", params={"endpoint_key": endpoint_key}).json()
+    objects = client.get("/relay/alpha", params={"endpoint_key": endpoint_key}, headers=read_headers()).json()
     returned = base64.b64decode(objects[-1]["payload_b64"])
     assert returned == opaque
     assert protected_plaintext not in returned

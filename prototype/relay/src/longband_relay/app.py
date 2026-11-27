@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from starlette.routing import Mount
 
 from .http import app as http_app
+from .limits import BodyLimit
 from .mcp_server import mcp
 
 
@@ -16,5 +17,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Longband Alpha service", lifespan=lifespan)
+app.add_middleware(BodyLimit)
 app.mount("/mcp", mcp.streamable_http_app())
 app.mount("/", http_app)

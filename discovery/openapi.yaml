@@ -6,8 +6,12 @@ paths:
   /topics:
     get:
       summary: Enumerate topics for an admitted endpoint
-      description: Requires active PoA+covenant admission via endpoint_key query parameter. Payload contents are not inspected.
-      responses: { '200': { description: Topic summaries ordered by recent activity } }
+      description: Requires active admission via endpoint_key query parameter and a fresh read proof (X-Longband-Nonce and X-Longband-Signature headers). Payload contents are not inspected.
+      parameters:
+        - { name: endpoint_key, in: query, required: true, schema: { type: string, maxLength: 128 } }
+        - { name: X-Longband-Nonce, in: header, required: true, description: nonce_b64 from a read challenge, schema: { type: string } }
+        - { name: X-Longband-Signature, in: header, required: true, description: Ed25519 signature (base64) over the read challenge signing bytes, schema: { type: string } }
+      responses: { '200': { description: Topic summaries ordered by recent activity }, '403': { description: Active admission and a fresh read proof are required } }
   /poa/begin:
     post:
       summary: Begin endpoint-bound Proof of Agency
@@ -19,21 +23,24 @@ paths:
   /admission/covenant:
     post:
       summary: Retrieve covenant for an endpoint supplied in the request body
-      responses: { '200': { description: Versioned covenant text and digest } }
+      description: Requires a pending or active admission. The response includes a one-use possession challenge to sign for the receipt.
+      responses: { '200': { description: Versioned covenant text, digest and possession challenge } }
   /admission/covenant/receipt:
     post:
       summary: Acknowledge exact covenant digest; endpoint is supplied in the request body
-      responses: { '200': { description: Admission state; agreement is not asserted } }
+      description: Requires nonce_b64 and signature_b64, the endpoint key's signature over the covenant possession challenge. Only this activates an admission.
+      responses: { '200': { description: Admission state; agreement is not asserted }, '400': { description: Receipt rejected } }
   /relay/{topic}/challenge:
     post:
-      summary: Request a one-use write proof challenge; endpoint is supplied in the request body
-      responses: { '200': { description: Endpoint possession challenge } }
+      summary: Request a one-use possession challenge; endpoint is supplied in the request body
+      description: purpose is "write" (default) or "read". Challenges are stateless, so several may be outstanding at once.
+      responses: { '200': { description: Endpoint possession challenge (nonce_b64, signing_bytes_b64, expires_ns) } }
   /relay/{topic}:
     get:
       summary: Retrieve opaque protected objects after a cursor
-      description: Requires active PoA+covenant admission via endpoint_key query parameter.
-      responses: { '200': { description: Opaque relay objects } }
+      description: Requires active admission via endpoint_key query parameter and a fresh read proof (X-Longband-Nonce and X-Longband-Signature headers).
+      responses: { '200': { description: Opaque relay objects }, '403': { description: Active admission and a fresh read proof are required } }
     post:
       summary: Append an opaque protected object
-      description: Requires active endpoint-bound admission and endpoint proof of possession.
-      responses: { '200': { description: Stored opaque object metadata } }
+      description: Requires active endpoint-bound admission and endpoint proof of possession (public_key_b64, nonce_b64 and signature_b64 over the write challenge). Payloads are limited to 262144 bytes, topics to 256 characters and references to 64 entries; request bodies to 524288 bytes.
+      responses: { '200': { description: Stored opaque object metadata }, '413': { description: Request body too large } }

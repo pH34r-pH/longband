@@ -25,6 +25,16 @@ TOPIC = "fixture:protocol"
 NS_PER_SECOND = 1_000_000_000
 
 
+class Signature(str):
+    """A base64 signature that remembers the challenge nonce it answers."""
+
+    nonce: bytes = b""
+
+
+def b64(data):
+    return base64.b64encode(data).decode("ascii")
+
+
 @dataclass(frozen=True)
 class FixedChallenge:
     expected: int
@@ -58,10 +68,24 @@ class ProtocolFixture:
 
     def sign(self):
         challenge = self.service.begin_write(self.endpoint).possession
-        return base64.b64encode(self.key.sign(challenge.signing_bytes)).decode("ascii")
+        signature = Signature(b64(self.key.sign(challenge.signing_bytes)))
+        signature.nonce = challenge.nonce
+        return signature
 
     def append(self, signature, *, references=()):
-        return self.service.append(self.endpoint, self.public, signature, TOPIC, OPAQUE, references)
+        return self.service.append(
+            self.endpoint, self.public, signature, TOPIC, OPAQUE, references,
+            nonce=getattr(signature, "nonce", b""),
+        )
+
+    def read_proof(self):
+        """A signed read challenge, as keyword arguments for ``topics`` / ``read``."""
+        challenge = self.service.begin_read(self.endpoint).possession
+        return {"nonce": challenge.nonce, "signature_b64": b64(self.key.sign(challenge.signing_bytes))}
+
+    def activation_proof(self):
+        challenge = self.service.begin_activation(self.endpoint).possession
+        return {"nonce": challenge.nonce, "signature_b64": b64(self.key.sign(challenge.signing_bytes))}
 
     def admit(self):
         self.issue()
