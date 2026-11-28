@@ -17,6 +17,8 @@ on:
       - 'scripts/build_offline_package.py'
       - 'scripts/test_build_offline_package.py'
       - 'scripts/protocol_vector_receipt.py'
+      - 'scripts/analyze_network_capture.py'
+      - 'scripts/test_analyze_network_capture.py'
       - '.github/workflows/python-alpha.yml'
   push:
     branches: [main]
@@ -25,6 +27,18 @@ permissions:
   contents: read
 
 jobs:
+  network-capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packet decoder
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark
+          tshark --version
+      - name: Check synthetic capture analysis
+        run: python3 -B -m unittest discover -s scripts -p test_analyze_network_capture.py -v
+
   poa:
     runs-on: ubuntu-latest
     defaults:

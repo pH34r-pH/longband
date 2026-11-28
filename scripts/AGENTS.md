@@ -5,6 +5,7 @@
 - [`test_build_offline_package.py`](test_build_offline_package.py) tests package membership, source identity, and receipt boundaries.
 - [`check_documentation_artifacts.py`](check_documentation_artifacts.py) classifies changed living Markdown and rejects incidental cache/temp artifacts.
 - [`test_documentation_artifacts.py`](test_documentation_artifacts.py) proves descriptive naming, historical/generated boundaries, safe rename/copy parsing, and fixture behavior.
+- [`analyze_network_capture.py`](analyze_network_capture.py) scans supplied capture bytes and decoded TCP streams; [`../docs/network-capture-analysis.md`](../docs/network-capture-analysis.md) states the limits and protected evidence boundary.
 
 Keep scripts bounded, deterministic, and free of credentials. Preserve exact source SHA and digest evidence; never silently replace or normalize historical receipts. The artifact guard rejects incidental paths only when they are added, renamed, or copied; it intentionally skips ordinary modifications to baseline artifacts.
 
